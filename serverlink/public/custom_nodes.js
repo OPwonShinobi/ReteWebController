@@ -76,7 +76,11 @@ export class AddComponent extends Rete.Component {
     const n2 = inputs['num2'].length?inputs['num2'][0]:node.data.num2;
     const sum = n1 + n2;
     //node param is minified obj, needs var "controls" which is only in full obj from parent
-    this.editor.nodes.find(n => n.id == node.id).controls.get("preview").setValue(sum)
+    const fullObj = this.editor.nodes.find(n => n.id === node.id);
+    //during load, editor will have 0 nodes
+    if (fullObj && fullObj.controls && fullObj.controls.get("preview")) {
+      fullObj.controls.get("preview").setValue(sum);
+    }
     outputs['num'] = sum;
   }
 }

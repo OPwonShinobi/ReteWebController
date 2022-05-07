@@ -1,5 +1,16 @@
+/* clickable background */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+#rete {
+  height: 100%;
+  width: 80%;
+}
+
 /* Add a black background color to the top navigation */
 .topnav {
+  float: top;
   background-color: #333;
   overflow: hidden;
 }

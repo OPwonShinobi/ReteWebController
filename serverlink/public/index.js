@@ -1,140 +1,42 @@
 import Rete from "rete";
-import ConnectionPlugin from 'rete-connection-plugin';
-import VueRenderPlugin from 'rete-vue-render-plugin';
-import ContextMenuPlugin from 'rete-context-menu-plugin';
+import ConnectionPlugin from "rete-connection-plugin";
+import ContextMenuPlugin from "rete-context-menu-plugin";
+import AlightRenderPlugin from "rete-alight-render-plugin";
+import DockPlugin from 'rete-dock-plugin';
 
-import './style.css';
+import "./style.css";
 import Favicon from "./favicon.png"
+import {AddComponent, NumComponent} from "./custom_nodes.js"
 
 document.getElementById("favicon").href = Favicon;
 
-const VERSION = 'serverlink@1.0.0';
-const numSocket = new Rete.Socket('Number value');
-const VueNumControl = {
-  props: ['readonly', 'emitter', 'ikey', 'getData', 'putData'],
-  template: '<input type="number" :readonly="readonly" :value="value" @input="change($event)" @dblclick.stop="" @pointerdown.stop="" @pointermove.stop=""/>',
-  data() {
-    return {
-      value: 0,
-    }
-  },
-  methods: {
-    change(e){
-      this.value = +e.target.value;
-      this.update();
-    },
-    update() {
-      if (this.ikey)
-        this.putData(this.ikey, this.value)
-      this.emitter.trigger('process');
-    }
-  },
-  mounted() {
-    this.value = this.getData(this.ikey);
-  }
-}
+const VERSION = "serverlink@1.0.0";
 
-class NumControl extends Rete.Control {
-  constructor(emitter, key, readonly) {
-    super(key);
-    this.component = VueNumControl;
-    this.props = { emitter, ikey: key, readonly };
-  }
-
-  setValue(val) {
-    this.vueContext.value = val;
-  }
-}
-
-class NumComponent extends Rete.Component {
-  constructor(){
-    super("Number");
-    this.HEIGHT = 130;
-  }
-  builder(node) {
-    var out1 = new Rete.Output('num', "Number", numSocket);
-    return node.addControl(new NumControl(this.editor, 'num')).addOutput(out1);
-  }
-
-  worker(node, inputs, outputs) {
-    outputs['num'] = node.data.num;
-  }
-}
-
-class AddComponent extends Rete.Component {
-  constructor(){
-    super("Add");
-    this.HEIGHT = 200;
-  }
-
-  builder(node) {
-    const inp1 = new Rete.Input('num',"Input1", numSocket);
-    const inp2 = new Rete.Input('num2', "Input2", numSocket);
-    const out = new Rete.Output('num', "output", numSocket);
-
-    inp1.addControl(new NumControl(this.editor, 'num'))
-    inp2.addControl(new NumControl(this.editor, 'num2'))
-
-    return node
-    .addInput(inp1)
-    .addInput(inp2)
-    .addControl(new NumControl(this.editor, 'preview', true))
-    .addOutput(out);
-  }
-
-  worker(node, inputs, outputs) {
-    const n1 = inputs['num'].length?inputs['num'][0]:node.data.num1;
-    const n2 = inputs['num2'].length?inputs['num2'][0]:node.data.num2;
-    const sum = n1 + n2;
-    //node param is minified obj, needs var "controls" which is only in full obj from parent
-    this.editor.nodes.find(n => n.id == node.id).controls.get("preview").setValue(sum)
-    outputs['num'] = sum;
-  }
-}
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new NumComponent(), new AddComponent()]
+  return [new NumComponent(), new AddComponent()];
 }
-async function loadSidebar(){
-  const components = getComponents();
-  const container = document.querySelector('#rete_legend');
-  const editor = new Rete.NodeEditor(VERSION, container);
-  editor.use(VueRenderPlugin);
-  editor.use(ContextMenuPlugin);
+
+function setPlugins(editor) {
   editor.use(ConnectionPlugin);
-
-  //need to register all comps to editor + engine
-  const engine = new Rete.Engine(VERSION);
-  components.map(c => {
-    editor.register(c);
-    engine.register(c);
-  });
-  let offset = 0;
-  for (let i = 0; i < components.length; i++) {
-    const node = await components[i].createNode();
-    node.position = [10,  offset];
-    editor.addNode(node);
-    offset += components[i].HEIGHT;
-  }
-
-  await engine.process(editor.toJSON());
-  document.querySelector("#rete_legend").style["overflow"] = "visible"
-  editor.on('nodetranslate', () => {
-    return false;
-  });
-  editor.on('nodeselect', (node) => {
-    console.log(node.position);
+  editor.use(AlightRenderPlugin);
+  //
+  editor.use(ContextMenuPlugin);
+  //plugin handles sidebar "dock", dont need to manually create
+  editor.use(DockPlugin, {
+    container: document.querySelector('#rete_legend'),
+    itemClass: 'dock-item', //css class for sidebar
+    plugins: [AlightRenderPlugin],
   });
 }
+
 async function loadMainpane() {
-  const container = document.querySelector('#rete');
+  const container = document.querySelector("#rete");
   const components = getComponents()
   const editor = new Rete.NodeEditor(VERSION, container);
-  editor.use(ConnectionPlugin);
-  editor.use(VueRenderPlugin);
-  editor.use(ContextMenuPlugin);
-
+  setPlugins(editor);
   const engine = new Rete.Engine(VERSION);
+  //need to register all comps to editor + engine
   components.map(c => {
     editor.register(c);
     engine.register(c);
@@ -152,21 +54,41 @@ async function loadMainpane() {
   editor.addNode(n1);
   editor.addNode(n2);
   editor.addNode(add);
-1
-  editor.connect(n1.outputs.get('num'), add.inputs.get('num'));
-  editor.connect(n2.outputs.get('num'), add.inputs.get('num2'));
 
+  editor.connect(n1.outputs.get("num"), add.inputs.get("num"));
+  editor.connect(n2.outputs.get("num"), add.inputs.get("num2"));
 
-  editor.on('process nodecreated noderemoved connectioncreated connectionremoved', async () => {
+  editor.on("process nodecreated noderemoved connectioncreated connectionremoved", async () => {
     await engine.abort();
     await engine.process(editor.toJSON());
   });
-  editor.trigger('process');
+  editor.trigger("process");
 // without this, nothing shows up. Possibly something to do w. editor.view.resize(), leaving this here as temp fix
   document.querySelector("#rete").style["overflow"] = "visible";
+  loadHandlers();
+}
+
+function loadHandlers() {
+  // btn handlers
+  document.getElementById("run_btn").onclick = handleRun;
+  document.getElementById("load_btn").onclick = handleLoad;
+  document.getElementById("save_btn").onclick = handleSave;
+  document.getElementById("settings_btn").onclick = handleSettings;
+}
+function handleRun() {
+  console.log("runHandler");
+}
+function handleLoad() {
+  console.log("loadHandler");
+}
+function handleSave() {
+  console.log("saveHandler");
+}
+function handleSettings() {
+  console.log("settingsHandler");
 }
 
 window.onload = async function(e) {
+  // loadSidebar();
   loadMainpane();
-  loadSidebar();
 };

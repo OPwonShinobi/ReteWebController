@@ -6,6 +6,10 @@ html, body {
 #rete {
   height: 100%;
   width: 80%;
+  /*grid square size*/
+  background-size: 20px 20px;
+  /*grid border color*/
+  background-image: linear-gradient(to right, #6496ff 1px, #0000 1px), linear-gradient(to bottom, #6496ff 1px, #0000 1px);
 }
 
 /* Add a black background color to the top navigation */

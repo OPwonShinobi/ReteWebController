@@ -16,7 +16,8 @@
     "rete-alight-render-plugin": "^0.1.5",
     "rete-connection-plugin": "^0.9.0",
     "rete-context-menu-plugin": "^0.5.2",
-    "rete-dock-plugin": "^0.2.1"
+    "rete-dock-plugin": "^0.2.1",
+    "rete-task-plugin": "^0.3.0"
   },
   "devDependencies": {
     "babel-polyfill": "^6.26.0",

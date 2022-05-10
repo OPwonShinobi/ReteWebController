@@ -4,10 +4,12 @@ import ContextMenuPlugin from "rete-context-menu-plugin";
 import AlightRenderPlugin from "rete-alight-render-plugin";
 import DockPlugin from "rete-dock-plugin";
 import AdvancedSelectionPlugin from "@mbraun/rete-advanced-selection-plugin";
+import TaskPlugin from "rete-task-plugin";
 
 import "./style.css";
-import Favicon from "./favicon.png"
-import {AddComponent, NumComponent, InputComponent, LogComponent} from "./custom_nodes.js"
+import Favicon from "./favicon.png";
+import {ConditionalComponent, KeydownComponent, LogComponent} from "./custom_nodes.js"
+import {clearHandlers} from "./custom_nodes";
 
 document.getElementById("favicon").href = Favicon;
 
@@ -15,7 +17,7 @@ const VERSION = "serverlink@1.0.0";
 
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new LogComponent(), new InputComponent(), new NumComponent(), new AddComponent()];
+  return [new LogComponent(), new ConditionalComponent(), new KeydownComponent()];
 }
 
 function setPlugins(editor) {
@@ -34,6 +36,8 @@ function setPlugins(editor) {
     document.querySelectorAll(".selected").forEach(e => e.classList.remove("selected"));
   });
   editor.use(AdvancedSelectionPlugin);
+  //needed for triggering events from outside the editor
+  editor.use(TaskPlugin);
 }
 
 async function loadMainpane() {
@@ -47,17 +51,14 @@ async function loadMainpane() {
     editor.register(c);
     engine.register(c);
   });
-
-  //need 1 node to start off, else cant drag more nodes from dock
-  const placeholder = await components[0].createNode();
-  placeholder.position = [0, 0];
-  editor.addNode(placeholder);
-
-  editor.on("process", async () => {
-    await engine.abort();
+  //called on graph reloads + field value updates
+  editor.on("process", async (args) => {
+    if (!args || args["reset"]) {
+      await engine.abort();
+    }
     await engine.process(editor.toJSON());
   });
-  editor.trigger("process");
+  editor.trigger("process", {reset:true});
   loadHandlers(editor);
 }
 
@@ -81,8 +82,12 @@ function handleLoad(editor) {
     if (file) {
       const reader = new FileReader();
       reader.readAsText(file, "UTF-8");
-      reader.onload = evt => {
-        editor.fromJSON(JSON.parse(evt.target.result)).catch(evt => alert("Loading json failed\n" + evt));
+      reader.onload = async evt => {
+        //issue w. loading event listeners into graph w. existing event listeners
+        clearHandlers();
+        await editor.fromJSON(JSON.parse(evt.target.result)).catch(evt => alert("Loading json failed\n" + evt));
+        //fromJSON silently triggers editor.processed event w.o reset flag, need to reset manually so control constructors properly called
+        await editor.trigger("process", {reset:true});
       };
       reader.onerror = evt => alert("Reading json failed\n" + evt);
     }

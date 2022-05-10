@@ -8,6 +8,8 @@ Setting up in intelliJ:
 
 3. run mvn install
 
+4. Create run & debug configurations in IntelliJ (clicking green arrow next to main method in App.java will generate it)
+
 Server:
 Create the standalone server "serverlink-1.0-SNAPSHOT-shaded.jar"
 	mvn install

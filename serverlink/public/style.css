@@ -2,10 +2,10 @@
 html, body {
   height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 #rete {
   height: 100%;
-  width: 80%;
   /*grid square size*/
   background-size: 20px 20px;
   /*grid border color*/

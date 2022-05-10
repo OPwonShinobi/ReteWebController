@@ -53,15 +53,12 @@ async function loadMainpane() {
   placeholder.position = [0, 0];
   editor.addNode(placeholder);
 
-  editor.on("process nodecreated noderemoved connectioncreated connectionremoved", async () => {
+  editor.on("process", async () => {
     await engine.abort();
     await engine.process(editor.toJSON());
   });
   editor.trigger("process");
-// without this, nothing shows up. Possibly something to do w. editor.view.resize(), leaving this here as temp fix
-  document.getElementById("rete").style["overflow"] = "visible";
   loadHandlers(editor);
-  // document.getElementById("rete_legend").addEventListener("nodeselect", )
 }
 
 function loadHandlers(editor) {

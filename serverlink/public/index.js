@@ -9,7 +9,7 @@ import TaskPlugin from "rete-task-plugin";
 import "./style.css";
 import Favicon from "./favicon.png";
 import {ConditionalComponent, KeydownComponent, LogComponent} from "./custom_nodes.js"
-import {clearHandlers} from "./custom_nodes";
+import {clearListeners} from "./custom_nodes";
 
 document.getElementById("favicon").href = Favicon;
 
@@ -58,6 +58,13 @@ async function loadMainpane() {
     }
     await engine.process(editor.toJSON());
   });
+  editor.on("connectioncreate connectionremove nodecreate noderemove", async ()=>{
+    if(editor.silent) return;
+
+    clearListeners();
+    await engine.abort();
+    await engine.process(editor.toJSON());
+  });
   editor.trigger("process", {reset:true});
   loadHandlers(editor);
 }
@@ -84,7 +91,7 @@ function handleLoad(editor) {
       reader.readAsText(file, "UTF-8");
       reader.onload = async evt => {
         //issue w. loading event listeners into graph w. existing event listeners
-        clearHandlers();
+        clearListeners();
         await editor.fromJSON(JSON.parse(evt.target.result)).catch(evt => alert("Loading json failed\n" + evt));
         //fromJSON silently triggers editor.processed event w.o reset flag, need to reset manually so control constructors properly called
         await editor.trigger("process", {reset:true});

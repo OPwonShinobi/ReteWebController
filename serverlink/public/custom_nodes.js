@@ -3,7 +3,7 @@ import Rete from "rete";
 const actionSocket = new Rete.Socket("Action");
 const dataSocket = new Rete.Socket("Data");
 
-const eventHandlers = {
+const eventListeners = {
   list: [],
   clear() {
     this.list.forEach(handler => {
@@ -16,8 +16,8 @@ const eventHandlers = {
     this.list.push(handler);
   }
 };
-export function clearHandlers() {
-  eventHandlers.clear();
+export function clearListeners() {
+  eventListeners.clear();
 }
 class MessageControl extends Rete.Control {
 
@@ -57,11 +57,11 @@ class MessageControl extends Rete.Control {
 export class KeydownComponent extends Rete.Component {
 
   constructor(){
-    super("Keydown event");
+    super("Keydown Listener");
     this.task = {
-      outputs: {act: "option", key: "output"},
+      outputs: {act: "option", dat: "output"},
       init(task, node){
-        eventHandlers.add("keydown", function (e) {
+        eventListeners.add("keydown", function (e) {
           task.run(e.keyCode);
           task.reset();
         });
@@ -70,13 +70,13 @@ export class KeydownComponent extends Rete.Component {
   }
 
   builder(node) {
-    node.addOutput(new Rete.Output("act", "", actionSocket))
-    node.addOutput(new Rete.Output("key", "Key code", dataSocket));
+    node.addOutput(new Rete.Output("act", "action", actionSocket))
+    node.addOutput(new Rete.Output("dat", "data", dataSocket));
   }
 
   worker(node, inputs, data) {
     console.log(node.name, node.id, data);
-    return {key: data}
+    return {dat: data}
   }
 }
 
@@ -92,20 +92,26 @@ export class ConditionalComponent extends Rete.Component {
   builder(node) {
 
     node
-    .addInput(new Rete.Input("act","", actionSocket))
-    .addInput(new Rete.Input("key", "Key code", dataSocket))
-    .addOutput(new Rete.Output("then", "Then", actionSocket))
-    .addOutput(new Rete.Output("else", "Else", actionSocket));
+    .addControl(new MessageControl(this.editor, node.data["msg"]))
+    .addInput(new Rete.Input("act","action", actionSocket))
+    .addInput(new Rete.Input("dat", "data", dataSocket))
+    .addOutput(new Rete.Output("then", "then", actionSocket))
+    .addOutput(new Rete.Output("else", "else", actionSocket));
   }
 
   worker(node, inputs, outputs) {
-    if (inputs && inputs["key"][0] == 13)
+    if (!inputs) {
+      return;
+    }
+    if (node.data["msg"] == inputs["dat"])
       this.closed = ["else"];
     else
       this.closed = ["then"];
 
     console.log(node.name, node.id, inputs);
   }
+
+
 }
 
 export class LogComponent extends Rete.Component {
@@ -120,11 +126,11 @@ export class LogComponent extends Rete.Component {
   builder(node) {
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
-    .addInput(new Rete.Input("act", "", actionSocket));
+    .addInput(new Rete.Input("act", "action", actionSocket))
+    .addInput(new Rete.Input("dat", "data", dataSocket));
   }
 
   worker(node, inputs) {
-    console.log(node.name, node.id, node.data);
-    // alert(node.data["msg"]);
+    console.log(node.name, node.id, node.data["msg"], inputs["dat"] || "");
   }
 }

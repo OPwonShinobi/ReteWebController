@@ -11,7 +11,13 @@ html, body {
   /*grid border color*/
   background-image: linear-gradient(to right, #6496ff 1px, #0000 1px), linear-gradient(to bottom, #6496ff 1px, #0000 1px);
 }
-
+/* socket colors*/
+.socket.action {
+  background: #e7bf0f
+}
+.socket.data {
+  background: #d5faaa
+}
 /* Add a black background color to the top navigation */
 .topnav {
   float: top;

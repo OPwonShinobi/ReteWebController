@@ -5,20 +5,28 @@ const dataSocket = new Rete.Socket("Data");
 
 const eventListeners = {
   list: [],
+  keys: new Set(),
   clear() {
-    this.list.forEach(handler => {
-      document.removeEventListener("keydown", handler);
+    this.list.forEach(e => {
+      document.removeEventListener(e.name, e.handler);
     });
     this.list = [];
+    this.keys.clear();
   },
-  add(name, handler) {
+  add(id, name, handler) {
+    if (this.keys.has(id)) {
+      return;
+    }
+    this.keys.add(id);
     document.addEventListener(name, handler, false);
-    this.list.push(handler);
+    this.list.push({name: name, handler: handler});
   }
 };
 export function clearListeners() {
   eventListeners.clear();
 }
+const chainingData = {};
+
 class MessageControl extends Rete.Control {
 
   constructor(emitter, msg) {
@@ -61,7 +69,7 @@ export class KeydownComponent extends Rete.Component {
     this.task = {
       outputs: {act: "option", dat: "output"},
       init(task, node){
-        eventListeners.add("keydown", function (e) {
+        eventListeners.add(node.id, "keydown", function (e) {
           task.run(e.keyCode);
           task.reset();
         });
@@ -80,38 +88,104 @@ export class KeydownComponent extends Rete.Component {
   }
 }
 
+export class MessageSenderComponent extends Rete.Component {
+
+  constructor(){
+    super("Message Sender");
+    this.task = {
+      outputs: {act: "option", dat: "output"},
+      init(task, node){
+        eventListeners.add(node.id, "run", function (e) {
+          task.run();
+          task.reset();
+        });
+      }
+    }
+  }
+
+  builder(node) {
+    node
+    .addControl(new MessageControl(this.editor, node.data["msg"]))
+    .addOutput(new Rete.Output("act", "action", actionSocket))
+    .addOutput(new Rete.Output("dat", "data", dataSocket));
+  }
+
+  worker(node) {
+    return {dat: node.data["msg"]}
+  }
+}
+export class RelayComponent extends Rete.Component {
+  //workaround to tasks.run only working properly for first 2 nodes in chain
+  constructor(){
+    super("Relay");
+    this.task = {
+      outputs: {dat:"option"}
+    }
+  }
+
+  builder(node) {
+    node
+    .addInput(new Rete.Input("act","action", actionSocket))
+    .addInput(new Rete.Input("dat", "data", dataSocket))
+    .addOutput(new Rete.Output("dat", "data", dataSocket));
+  }
+  worker(node, inputs) {
+    if (!inputs) {
+      return;
+    }
+    cacheChainingValue(node, inputs["dat"]);
+  }
+}
+//call this in every chainable node
+function cacheChainingValue(node, val) {
+  if (val) {
+    chainingData[node.id] = val;
+  } else {
+    chainingData[node.id] = popParentNodeCache(node);
+  }
+}
+function popParentNodeCache(node) {
+  const parentId = node.inputs["dat"].connections[0].node;
+  let val = null;
+  if (chainingData[parentId]) {
+    val = [...chainingData[parentId]];
+    chainingData[parentId] = null;
+  }
+  return val;
+}
+//call this in every potential leaf node
+function getChainingValue(node, val) {
+  return val ?? popParentNodeCache(node);
+}
+
 export class ConditionalComponent extends Rete.Component {
 
   constructor(){
     super("Conditional");
     this.task = {
-      outputs: {then:"option", else:"option"}
+      outputs: {dat:"option", else_dat:"option"}
     }
   }
 
   builder(node) {
-
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
     .addInput(new Rete.Input("act","action", actionSocket))
     .addInput(new Rete.Input("dat", "data", dataSocket))
-    .addOutput(new Rete.Output("then", "then", actionSocket))
-    .addOutput(new Rete.Output("else", "else", actionSocket));
+    .addOutput(new Rete.Output("dat", "if", dataSocket))
+    .addOutput(new Rete.Output("else_dat", "else", dataSocket));
   }
-
+  //called by task.run, no longer by rete
   worker(node, inputs, outputs) {
     if (!inputs) {
       return;
     }
-    if (node.data["msg"] == inputs["dat"])
-      this.closed = ["else"];
-    else
-      this.closed = ["then"];
-
-    console.log(node.name, node.id, inputs);
+    const inputData = getChainingValue(node, inputs["dat"]);
+    //set closed to array of non-selected outputs, these are reversed
+    const sel = node.data["msg"] === inputData[0] ? "else_dat" : "dat";
+    this.closed = [sel];
+    cacheChainingValue(node, inputData);
   }
-
-
 }
 
 export class LogComponent extends Rete.Component {
@@ -131,6 +205,6 @@ export class LogComponent extends Rete.Component {
   }
 
   worker(node, inputs) {
-    console.log(node.name, node.id, node.data["msg"], inputs["dat"] || "");
+    console.log(node.name, node.id, node.data["msg"], getChainingValue(node, inputs["dat"]));
   }
 }

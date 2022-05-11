@@ -8,7 +8,7 @@ import TaskPlugin from "rete-task-plugin";
 
 import "./style.css";
 import Favicon from "./favicon.png";
-import {ConditionalComponent, KeydownComponent, LogComponent} from "./custom_nodes.js"
+import {ConditionalComponent, KeydownComponent, LogComponent, MessageSenderComponent, RelayComponent} from "./custom_nodes.js"
 import {clearListeners} from "./custom_nodes";
 
 document.getElementById("favicon").href = Favicon;
@@ -17,7 +17,7 @@ const VERSION = "serverlink@1.0.0";
 
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new LogComponent(), new ConditionalComponent(), new KeydownComponent()];
+  return [new LogComponent(), new ConditionalComponent(), new KeydownComponent(), new MessageSenderComponent(), new RelayComponent()];
 }
 
 function setPlugins(editor) {
@@ -58,7 +58,7 @@ async function loadMainpane() {
     }
     await engine.process(editor.toJSON());
   });
-  editor.on("connectioncreate connectionremove nodecreate noderemove", async ()=>{
+  editor.on("connectioncreate connectionremove noderemove", async ()=>{
     if(editor.silent) return;
 
     clearListeners();
@@ -77,7 +77,8 @@ function loadHandlers(editor) {
   document.getElementById("settings_btn").onclick = handleSettings;
 }
 function handleRun() {
-  console.log("runHandler");
+  console.log("run triggered", new Date());
+  document.dispatchEvent(new CustomEvent("run", {}));
 }
 
 //to keep ui clean, use temporary <input> and <a> elems for file upload n download
@@ -91,10 +92,11 @@ function handleLoad(editor) {
       reader.readAsText(file, "UTF-8");
       reader.onload = async evt => {
         //issue w. loading event listeners into graph w. existing event listeners
-        clearListeners();
         await editor.fromJSON(JSON.parse(evt.target.result)).catch(evt => alert("Loading json failed\n" + evt));
         //fromJSON silently triggers editor.processed event w.o reset flag, need to reset manually so control constructors properly called
         await editor.trigger("process", {reset:true});
+        //bug exists in tasks plugin: running editor.fromJSON will freeze engine until a connectioncreate event is fired after process event
+        editor.trigger("connectioncreate");
       };
       reader.onerror = evt => alert("Reading json failed\n" + evt);
     }

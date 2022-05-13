@@ -91,7 +91,6 @@ function handleLoad(editor) {
       const reader = new FileReader();
       reader.readAsText(file, "UTF-8");
       reader.onload = async evt => {
-        //issue w. loading event listeners into graph w. existing event listeners
         await editor.fromJSON(JSON.parse(evt.target.result)).catch(evt => alert("Loading json failed\n" + evt));
         //fromJSON silently triggers editor.processed event w.o reset flag, need to reset manually so control constructors properly called
         await editor.trigger("process", {reset:true});

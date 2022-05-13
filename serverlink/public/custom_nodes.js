@@ -2,6 +2,7 @@ import Rete from "rete";
 
 const actionSocket = new Rete.Socket("Action");
 const dataSocket = new Rete.Socket("Data");
+actionSocket.combineWith(dataSocket);
 
 const eventListeners = {
   list: [],
@@ -67,7 +68,7 @@ export class KeydownComponent extends Rete.Component {
   constructor(){
     super("Keydown Listener");
     this.task = {
-      outputs: {act: "option", dat: "output"},
+      outputs: {act: "option"},
       init(task, node){
         eventListeners.add(node.id, "keydown", function (e) {
           task.run(e.keyCode);
@@ -78,13 +79,12 @@ export class KeydownComponent extends Rete.Component {
   }
 
   builder(node) {
-    node.addOutput(new Rete.Output("act", "action", actionSocket))
-    node.addOutput(new Rete.Output("dat", "data", dataSocket));
+    node.addOutput(new Rete.Output("act", "trigger", actionSocket));
   }
 
   worker(node, inputs, data) {
     console.log(node.name, node.id, data);
-    return {dat: data}
+    cacheChainingValue(node, String(data));
   }
 }
 
@@ -93,7 +93,7 @@ export class MessageSenderComponent extends Rete.Component {
   constructor(){
     super("Message Sender");
     this.task = {
-      outputs: {act: "option", dat: "output"},
+      outputs: {act: "option"},
       init(task, node){
         eventListeners.add(node.id, "run", function (e) {
           task.run();
@@ -106,12 +106,11 @@ export class MessageSenderComponent extends Rete.Component {
   builder(node) {
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
-    .addOutput(new Rete.Output("act", "action", actionSocket))
-    .addOutput(new Rete.Output("dat", "data", dataSocket));
+    .addOutput(new Rete.Output("act", "trigger", actionSocket));
   }
 
   worker(node) {
-    return {dat: node.data["msg"]}
+    cacheChainingValue(node, node.data["msg"]);
   }
 }
 export class RelayComponent extends Rete.Component {
@@ -125,7 +124,6 @@ export class RelayComponent extends Rete.Component {
 
   builder(node) {
     node
-    .addInput(new Rete.Input("act","action", actionSocket))
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", dataSocket));
   }
@@ -144,18 +142,15 @@ function cacheChainingValue(node, val) {
     chainingData[node.id] = popParentNodeCache(node);
   }
 }
+//call this in every potential leaf node
 function popParentNodeCache(node) {
   const parentId = node.inputs["dat"].connections[0].node;
   let val = null;
   if (chainingData[parentId]) {
-    val = [...chainingData[parentId]];
+    val = chainingData[parentId];
     chainingData[parentId] = null;
   }
   return val;
-}
-//call this in every potential leaf node
-function getChainingValue(node, val) {
-  return val ?? popParentNodeCache(node);
 }
 
 export class ConditionalComponent extends Rete.Component {
@@ -170,7 +165,6 @@ export class ConditionalComponent extends Rete.Component {
   builder(node) {
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
-    .addInput(new Rete.Input("act","action", actionSocket))
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "if", dataSocket))
     .addOutput(new Rete.Output("else_dat", "else", dataSocket));
@@ -180,7 +174,7 @@ export class ConditionalComponent extends Rete.Component {
     if (!inputs) {
       return;
     }
-    const inputData = getChainingValue(node, inputs["dat"]);
+    const inputData = popParentNodeCache(node);
     //set closed to array of non-selected outputs, these are reversed
     const sel = node.data["msg"] === inputData[0] ? "else_dat" : "dat";
     this.closed = [sel];
@@ -200,11 +194,11 @@ export class LogComponent extends Rete.Component {
   builder(node) {
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
-    .addInput(new Rete.Input("act", "action", actionSocket))
     .addInput(new Rete.Input("dat", "data", dataSocket));
   }
 
   worker(node, inputs) {
-    console.log(node.name, node.id, node.data["msg"], getChainingValue(node, inputs["dat"]));
+    console.log(node.name, node.id, node.data["msg"], popParentNodeCache(node));
   }
 }
+const numSocket = new Rete.Socket('Number value');

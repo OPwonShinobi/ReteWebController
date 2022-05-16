@@ -30,13 +30,15 @@ const chainingData = {};
 
 class MessageControl extends Rete.Control {
 
-  constructor(emitter, msg) {
-    super("MessageControl");
+  constructor(emitter, msg, key) {
+    const thisKey = key || "msg";
+    super(thisKey);
+    this.key = thisKey;
     this.emitter = emitter;
-    this.template = `<input :value="msg" @input="change($event)"/>`;
+    this.template = `<input :value=${msg} @input="change($event)"/>`;
 
     this.scope = {
-      msg,
+      thisKey,
       change: this.change.bind(this)
     };
   }
@@ -47,13 +49,13 @@ class MessageControl extends Rete.Control {
   }
 
   update() {
-    this.putData("msg", this.scope.value);
+    this.putData(this.key, this.scope.value);
     this.emitter.trigger('process', {reset:false});
     this._alight.scan();
   }
 
   mounted() {
-    this.scope.value = this.getData("msg") || "";
+    this.scope.value = this.getData(this.key) || "";
     this.update();
   }
 
@@ -158,16 +160,24 @@ export class ConditionalComponent extends Rete.Component {
   constructor(){
     super("Conditional");
     this.task = {
-      outputs: {dat:"option", else_dat:"option"}
-    }
+      outputs: {dat:"option", dat1:"option", dat2:"option" , dat3:"option", dat4:"option", else:"option"}
+    };
   }
 
   builder(node) {
     node
-    .addControl(new MessageControl(this.editor, node.data["msg"]))
+    .addControl(new MessageControl(this.editor, node.data["msg"], "msg"))
+    .addControl(new MessageControl(this.editor, node.data["msg1"], "msg1"))
+    .addControl(new MessageControl(this.editor, node.data["msg2"], "msg2"))
+    .addControl(new MessageControl(this.editor, node.data["msg3"], "msg3"))
+    .addControl(new MessageControl(this.editor, node.data["msg4"],"msg4"))
     .addInput(new Rete.Input("dat", "data", dataSocket))
-    .addOutput(new Rete.Output("dat", "if", dataSocket))
-    .addOutput(new Rete.Output("else_dat", "else", dataSocket));
+    .addOutput(new Rete.Output("dat", "then", dataSocket))
+    .addOutput(new Rete.Output("dat1", "then", dataSocket))
+    .addOutput(new Rete.Output("dat2", "then", dataSocket))
+    .addOutput(new Rete.Output("dat3", "then", dataSocket))
+    .addOutput(new Rete.Output("dat4", "then", dataSocket))
+    .addOutput(new Rete.Output("else", "else", dataSocket))
   }
   //called by task.run, no longer by rete
   worker(node, inputs, outputs) {
@@ -201,4 +211,3 @@ export class LogComponent extends Rete.Component {
     console.log(node.name, node.id, node.data["msg"], popParentNodeCache(node));
   }
 }
-const numSocket = new Rete.Socket('Number value');

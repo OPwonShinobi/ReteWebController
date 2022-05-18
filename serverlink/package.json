@@ -4,9 +4,10 @@
   "description": "",
   "private": true,
   "scripts": {
-    "start": "webpack-dev-server --hot",
-    "dev": "webpack --mode=development",
-    "build": "webpack --mode=production"
+    "devServer": "webpack-dev-server --config webpack.devServer.config.js",
+    "headless" : "webpack-dev-server --hot",
+    "buildDev": "webpack --mode=development",
+    "buildProd": "webpack --mode=production"
   },
   "author": "alex xia",
   "license": "ISC",

@@ -15,10 +15,11 @@ Create the standalone server "serverlink-1.0-SNAPSHOT-shaded.jar"
 	mvn install
 
 Web:
-	Dev:
-		npm run dev
-	or
-		npm run start
-
-	Production:
-		npm run build
+	Release:
+		npm run buildDev
+		npm run buildProd
+	Debug:
+		(without server running)
+		npm run headless
+		(with server running, need to restart server to apply changes)
+		npm run devServer

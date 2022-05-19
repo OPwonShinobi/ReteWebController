@@ -64,7 +64,20 @@ class MessageControl extends Rete.Control {
     this._alight.scan()
   }
 }
-
+class ButtonControl extends Rete.Control {
+  constructor(key, display, clickFunc, parentObj) {
+    const thisKey = key || "btn";
+    super(thisKey);
+    this.key = thisKey;
+    this.clickFunc = clickFunc;
+    this.template = `<button @click="onClick($event)">${display}</button>`;
+    this.scope = {
+      onClick : () => {
+        this.clickFunc.bind(parentObj)();
+      }
+    }
+  }
+}
 export class KeydownComponent extends Rete.Component {
 
   constructor(){
@@ -160,27 +173,66 @@ export class ConditionalComponent extends Rete.Component {
   constructor(){
     super("Conditional");
     this.task = {
-      outputs: {dat:"option", dat1:"option", dat2:"option" , dat3:"option", dat4:"option", else:"option"}
+      "outputs": {"else":"option", "opt0":"option"}
     };
+    this.node = null;
+    this.condPairs = {};
   }
-
+  getLastIdx(){
+    const keys = Object.keys(this.task["outputs"]).sort();
+    return parseInt(keys[keys.length-1].substring("opt".length));
+  }
+  removeHandler() {
+    const idx = this.getLastIdx();
+    if (!idx) {
+      return
+    }
+    const key = "opt" + idx;
+    //cant set null, need to delete to remove key
+    delete this.task["outputs"][key];
+    this.node.removeControl(this.condPairs[key]["ctrl"]);
+    this.node.removeOutput(this.condPairs[key]["output"]);
+    try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
+  }
+  addHandler() {
+    const newKey = "opt" + (this.getLastIdx()+1);
+    this.addCond(newKey);
+    //this triggers some alight error. but still works, so ignoring
+    try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
+  }
+  addCond(key){
+    const ctrl = new MessageControl(this.editor, this.node["data"][key], key);
+    this.node.addControl(ctrl);
+    const output = new Rete.Output(key, "else if", dataSocket);
+    this.node.addOutput(output)
+    this.task["outputs"][key] = "option";
+    this.condPairs[key] = {"ctrl": ctrl, "output":output};
+  }
   builder(node) {
-    node
-    .addControl(new MessageControl(this.editor, node.data["msg"], "msg"))
-    .addControl(new MessageControl(this.editor, node.data["msg1"], "msg1"))
-    .addControl(new MessageControl(this.editor, node.data["msg2"], "msg2"))
-    .addControl(new MessageControl(this.editor, node.data["msg3"], "msg3"))
-    .addControl(new MessageControl(this.editor, node.data["msg4"],"msg4"))
+    this.node = node ?? this.node;
+    const defaultCond = "opt0";
+    //default options
+    this.node
     .addInput(new Rete.Input("dat", "data", dataSocket))
-    .addOutput(new Rete.Output("dat", "then", dataSocket))
-    .addOutput(new Rete.Output("dat1", "then", dataSocket))
-    .addOutput(new Rete.Output("dat2", "then", dataSocket))
-    .addOutput(new Rete.Output("dat3", "then", dataSocket))
-    .addOutput(new Rete.Output("dat4", "then", dataSocket))
-    .addOutput(new Rete.Output("else", "else", dataSocket))
+    .addControl(new ButtonControl("add", "Add", this.addHandler, this))
+    .addControl(new ButtonControl("delete", "Delete", this.removeHandler, this))
+    .addOutput(new Rete.Output(defaultCond, "if", dataSocket))
+    .addControl(new MessageControl(this.editor, this.node["data"][defaultCond], defaultCond))
+
+    //extra conditions
+    if (Object.keys(this.node["data"]).length !== 0) {
+      for(let key in this.node["data"]) {
+        if (key !== defaultCond && this.node["data"][key]) {
+          this.addCond(key);
+        }
+      }
+    }
+    //else added at end
+    this.node
+    .addOutput(new Rete.Output("optElse", "else", dataSocket));
   }
   //called by task.run, no longer by rete
-  worker(node, inputs, outputs) {
+  worker(node, inputs) {
     if (!inputs) {
       return;
     }

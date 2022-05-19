@@ -111,6 +111,10 @@ export class MessageSenderComponent extends Rete.Component {
       outputs: {act: "option"},
       init(task, node){
         eventListeners.add(node.id, "run", function (e) {
+          if (!node.data["msg"]) {
+            alert("Run cancelled. msg can't be empty!");
+            return;
+          }
           task.run();
           task.reset();
         });
@@ -150,6 +154,7 @@ export class RelayComponent extends Rete.Component {
   }
 }
 //call this in every chainable node
+//if val given, save it to current cache. else pop it from parent cache
 function cacheChainingValue(node, val) {
   if (val) {
     chainingData[node.id] = val;
@@ -157,7 +162,7 @@ function cacheChainingValue(node, val) {
     chainingData[node.id] = popParentNodeCache(node);
   }
 }
-//call this in every potential leaf node
+//call this in every chainable or potential leaf node
 function popParentNodeCache(node) {
   const parentId = node.inputs["dat"].connections[0].node;
   let val = null;
@@ -229,17 +234,27 @@ export class ConditionalComponent extends Rete.Component {
     }
     //else added at end
     this.node
-    .addOutput(new Rete.Output("optElse", "else", dataSocket));
+    .addOutput(new Rete.Output("else", "else", dataSocket));
   }
-  //called by task.run, no longer by rete
+  //called by task.run, no longer by rete, dont have access to most instance data
   worker(node, inputs) {
-    if (!inputs) {
-      return;
-    }
+    if (!inputs) {return;}
     const inputData = popParentNodeCache(node);
     //set closed to array of non-selected outputs, these are reversed
-    const sel = node.data["msg"] === inputData[0] ? "else_dat" : "dat";
-    this.closed = [sel];
+    this.closed = [];
+    let matches = [];
+    for (let key of Object.keys(node.outputs)) {
+      if (key === "else") {continue;}
+      //for now, splitting func on conditional node is disabled
+      if (!matches.length && inputData === node.data[key]) {
+        matches.push(key);
+      } else {
+        this.closed.push(key);
+      }
+    }
+    if (matches.length) {
+      this.closed.push("else");
+    }
     cacheChainingValue(node, inputData);
   }
 }
@@ -259,7 +274,7 @@ export class LogComponent extends Rete.Component {
     .addInput(new Rete.Input("dat", "data", dataSocket));
   }
 
-  worker(node, inputs) {
+  worker(node) {
     console.log(node.name, node.id, node.data["msg"], popParentNodeCache(node));
   }
 }

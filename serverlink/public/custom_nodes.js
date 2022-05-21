@@ -1,4 +1,5 @@
 import Rete from "rete";
+import {ConditionalNodeTemplate} from './custom_templates';
 
 const actionSocket = new Rete.Socket("Action");
 const dataSocket = new Rete.Socket("Data");
@@ -70,7 +71,7 @@ class ButtonControl extends Rete.Control {
     super(thisKey);
     this.key = thisKey;
     this.clickFunc = clickFunc;
-    this.template = `<button @click="onClick($event)">${display}</button>`;
+    this.template = `<button class="${display}" @click="onClick($event)">${display}</button>`;
     this.scope = {
       onClick : () => {
         this.clickFunc.bind(parentObj)();
@@ -180,8 +181,9 @@ export class ConditionalComponent extends Rete.Component {
     this.task = {
       "outputs": {"else":"option", "opt0":"option"}
     };
-    this.node = null;
     this.condPairs = {};
+    this.data.template = ConditionalNodeTemplate;
+    this.data.render = "alight";
   }
   getLastIdx(){
     const keys = Object.keys(this.task["outputs"]).sort();
@@ -221,8 +223,10 @@ export class ConditionalComponent extends Rete.Component {
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addControl(new ButtonControl("add", "Add", this.addHandler, this))
     .addControl(new ButtonControl("delete", "Delete", this.removeHandler, this))
+    //due to tech limitation, else must be first
+    .addOutput(new Rete.Output("else", "else", dataSocket))
     .addOutput(new Rete.Output(defaultCond, "if", dataSocket))
-    .addControl(new MessageControl(this.editor, this.node["data"][defaultCond], defaultCond))
+    .addControl(new MessageControl(this.editor, this.node["data"][defaultCond], defaultCond));
 
     //extra conditions
     if (Object.keys(this.node["data"]).length !== 0) {
@@ -232,9 +236,6 @@ export class ConditionalComponent extends Rete.Component {
         }
       }
     }
-    //else added at end
-    this.node
-    .addOutput(new Rete.Output("else", "else", dataSocket));
   }
   //called by task.run, no longer by rete, dont have access to most instance data
   worker(node, inputs) {

@@ -47,6 +47,13 @@ html, body {
 }
 .w3-sidebar{height:100%;width:20%;background-color:#fff;position:fixed!important;z-index:1;overflow:auto;right:0;}
 
+/* conditional node styling*/
+.node.conditional .btn_container .control:first-child {
+  float:left;
+}
+.node.conditional .output_container .control {
+  margin-top: -40px;
+}
 /* misc settings from W3school, used by sidebar + top navbar */
 /* W3.CSS 4.15 December 2020 by Jan Egil and Borge Refsnes */
 html{box-sizing:border-box}*,*:before,*:after{box-sizing:inherit}

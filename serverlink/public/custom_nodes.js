@@ -36,10 +36,10 @@ class MessageControl extends Rete.Control {
     super(thisKey);
     this.key = thisKey;
     this.emitter = emitter;
-    this.template = `<input :value=${msg} @input="change($event)"/>`;
+    this.template = `<input :value="msg" @input="change($event)"/>`;
 
     this.scope = {
-      thisKey,
+      msg,
       change: this.change.bind(this)
     };
   }

@@ -1,28 +1,21 @@
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
 
 import fi.iki.elonen.NanoHTTPD;
+import fi.iki.elonen.router.RouterNanoHTTPD;
 
-public class App extends NanoHTTPD {
+public class App extends RouterNanoHTTPD {
   private static final int PORT = 8080;
-  private static final String DIST = "./dist";
-  private static final String HOMEPAGE = "index.html";
-  private static Map<String, String> resources;
 
-  public static void parseResources() throws IOException {
-    resources = new HashMap<>();
-    for (File file : new File(DIST).listFiles()) {
-      byte[] encoded = Files.readAllBytes(file.toPath());
-      String savedName = file.getName().equals(HOMEPAGE) ? HOMEPAGE : file.getName();
-      resources.put(savedName, new String(encoded));
-    }
+  @Override
+  public void addMappings() {
+    addRoute("/", Homepage.class);
+    addRoute("/bundle.js", Homepage.class);
+    addRoute("/favicon.png", Homepage.class);
   }
 
   public App(final int port) throws IOException {
     super(port);
+    addMappings();
     start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
     System.out.println(String.format("\nRunning! Point your browsers to http://localhost:%d/ \n", port));
   }
@@ -33,25 +26,10 @@ public class App extends NanoHTTPD {
       port = Integer.parseInt(args[1]);
     }
     try {
-      parseResources();
       new App(port);
     } catch (IOException ioe) {
       System.err.println("Couldn't start server:\n" + ioe);
     }
   }
 
-  @Override
-  public Response serve(IHTTPSession session) {
-    String resource = session.getUri().substring(1); //trim leading "/"
-    if (resource.isEmpty()) {
-      return newFixedLengthResponse(resources.get(HOMEPAGE));
-    }
-    if (session.getMethod() == Method.GET) {
-      if (resources.get(resource) != null) {
-        return newFixedLengthResponse(resources.get(resource));
-      }
-      return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "No GET resource: " + session.getUri());
-    }
-    return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "No resource: " + session.getUri());
-  }
 }

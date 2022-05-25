@@ -30,36 +30,30 @@ export function clearListeners() {
 const chainingData = {};
 
 class MessageControl extends Rete.Control {
-
   constructor(emitter, msg, key) {
     const thisKey = key || "msg";
     super(thisKey);
     this.key = thisKey;
     this.emitter = emitter;
     this.template = `<input :value="msg" @input="change($event)"/>`;
-
     this.scope = {
       msg,
-      change: this.change.bind(this)
+      change: this.changeHandler.bind(this)
     };
   }
-
-  change(e) {
+  changeHandler(e) {
     this.scope.value = e.target.value;
     this.update();
   }
-
   update() {
     this.putData(this.key, this.scope.value);
     this.emitter.trigger('process', {reset:false});
     this._alight.scan();
   }
-
   mounted() {
     this.scope.value = this.getData(this.key) || "";
     this.update();
   }
-
   setValue(val) {
     this.scope.value = val;
     this._alight.scan()
@@ -73,9 +67,7 @@ class ButtonControl extends Rete.Control {
     this.clickFunc = clickFunc;
     this.template = `<button class="${display}" @click="onClick($event)">${display}</button>`;
     this.scope = {
-      onClick : () => {
-        this.clickFunc.bind(parentObj)();
-      }
+      onClick : this.clickFunc.bind(parentObj)
     }
   }
 }
@@ -84,10 +76,10 @@ export class KeydownComponent extends Rete.Component {
   constructor(){
     super("Keydown Listener");
     this.task = {
-      outputs: {act: "option"},
+      outputs: {"act": "option"},
       init(task, node){
         eventListeners.add(node.id, "keydown", function (e) {
-          task.run(e.keyCode);
+          task.run(e.key);
           task.reset();
         });
       }
@@ -100,7 +92,10 @@ export class KeydownComponent extends Rete.Component {
 
   worker(node, inputs, data) {
     console.log(node.name, node.id, data);
-    cacheChainingValue(node, String(data));
+    //outputs different for every node, this check need to go in worker func
+    if (node.outputs["act"].connections > 0) {
+      cacheChainingValue(node, String(data));
+    }
   }
 }
 
@@ -109,7 +104,7 @@ export class MessageSenderComponent extends Rete.Component {
   constructor(){
     super("Message Sender");
     this.task = {
-      outputs: {act: "option"},
+      outputs: {"act": "option"},
       init(task, node){
         eventListeners.add(node.id, "run", function (e) {
           if (!node.data["msg"]) {
@@ -130,7 +125,9 @@ export class MessageSenderComponent extends Rete.Component {
   }
 
   worker(node) {
-    cacheChainingValue(node, node.data["msg"]);
+    if (node.outputs["act"].connections > 0) {
+      cacheChainingValue(node, String(data));
+    }
   }
 }
 export class RelayComponent extends Rete.Component {
@@ -148,9 +145,6 @@ export class RelayComponent extends Rete.Component {
     .addOutput(new Rete.Output("dat", "data", dataSocket));
   }
   worker(node, inputs) {
-    if (!inputs) {
-      return;
-    }
     cacheChainingValue(node, inputs["dat"]);
   }
 }
@@ -179,7 +173,7 @@ function popParentNodeCache(node) {
       chainingData[parentId] = {};
     }
 
-    if (chainingData[parentId] === {}) {
+    if (!Object.keys(chainingData[parentId]).length) {
       delete chainingData[parentId];
     }
   }
@@ -193,7 +187,6 @@ export class ConditionalComponent extends Rete.Component {
     this.task = {
       "outputs": {"else":"option", "opt0":"option"}
     };
-    this.condPairs = {};
     this.data.template = ConditionalNodeTemplate;
   }
   getLastIdx(){
@@ -203,13 +196,14 @@ export class ConditionalComponent extends Rete.Component {
   removeHandler() {
     const idx = this.getLastIdx();
     if (!idx) {
+      //do not allow removing default conditions "opt0" or "else"
       return
     }
     const key = "opt" + idx;
     //cant set null, need to delete to remove key
     delete this.task["outputs"][key];
-    this.node.removeControl(this.condPairs[key]["ctrl"]);
-    this.node.removeOutput(this.condPairs[key]["output"]);
+    this.node.removeControl(this.node.controls[key]);
+    this.node.removeOutput(this.node.outputs[key]);
     try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
   }
   addHandler() {
@@ -224,7 +218,6 @@ export class ConditionalComponent extends Rete.Component {
     const output = new Rete.Output(key, "else if", dataSocket);
     this.node.addOutput(output)
     this.task["outputs"][key] = "option";
-    this.condPairs[key] = {"ctrl": ctrl, "output":output};
   }
   builder(node) {
     this.node = node ?? this.node;
@@ -240,34 +233,36 @@ export class ConditionalComponent extends Rete.Component {
     .addControl(new MessageControl(this.editor, this.node["data"][defaultCond], defaultCond));
 
     //extra conditions
-    if (Object.keys(this.node["data"]).length !== 0) {
-      for(const key in this.node["data"]) {
-        if (key !== defaultCond) {
-          this.addCond(key);
-        }
+    for(const key in this.node["data"]) {
+      if (key !== defaultCond) {
+        this.addCond(key);
       }
     }
   }
-  //called by task.run, no longer by rete, dont have access to most instance data
-  worker(node, inputs) {
-    if (!inputs) {return;}
-    const inputData = popParentNodeCache(node);
+  worker(node) {
+    const data = popParentNodeCache(node);
     //set closed to array of non-selected outputs, these are reversed
     this.closed = [];
-    let matches = [];
+    let matches = 0;
+    const dataToBeCached = {hasCopies: true};
     for (const key in node.outputs) {
       if (key === "else") {continue;}
-      //for now, splitting func on conditional node is disabled
-      if (!matches.length && inputData === node.data[key]) {
-        matches.push(key);
+      if (node.outputs[key].connections.length === 0) {continue;}
+      if (data === node.data[key]) {
+        matches++;
+        const childId = node.outputs[key].connections[0].node;
+        dataToBeCached[childId] = data;
       } else {
         this.closed.push(key);
       }
     }
-    if (matches.length) {
+    if (matches > 0) {
       this.closed.push("else");
+    } else {
+      const childId = node.outputs["else"].connections[0].node;
+      dataToBeCached[childId] = data;
     }
-    cacheChainingValue(node, inputData);
+    cacheChainingValue(node, data);
   }
 }
 
@@ -275,9 +270,8 @@ export class LogComponent extends Rete.Component {
 
   constructor() {
     super("Log");
-    this.task = {
-      outputs: {}
-    }
+    //even tho task is unused here, still need empty task.outputs obj or tasks plugin will complain
+    this.task = {outputs: {}}
   }
 
   builder(node) {
@@ -307,6 +301,7 @@ export class SpreaderComponent extends Rete.Component {
   removeHandler() {
     const idx = this.getLastIdx();
     if (!idx) {
+      //do not allow removing default condition "opt0"
       return
     }
     const key = "opt" + idx;
@@ -335,7 +330,8 @@ export class SpreaderComponent extends Rete.Component {
     this.node.data[key] = "option"; //placeholder data
   }
   builder(node) {
-    this.node = node ?? this.node;
+    //need to save node to this context, addOut needs to reference it
+    this.node = node;
     //default options
     const defaultOut = "opt0";
     this.node
@@ -346,14 +342,11 @@ export class SpreaderComponent extends Rete.Component {
     .addOutput(new Rete.Output(defaultOut, "data", dataSocket));
 
     //extra outputs
-    if (Object.keys(this.node["data"]).length !== 0) {
-      for(const key in this.node["data"]) {
-        this.addOut(key);
-      }
+    for(const key in this.node["data"]) {
+      this.addOut(key);
     }
   }
-  worker(node, inputs) {
-    if (!inputs) {return;}
+  worker(node) {
     const spreadData = popParentNodeCache(node);
     // keep closed empty, do not close any connections: send to all child nodes
     this.closed = [];

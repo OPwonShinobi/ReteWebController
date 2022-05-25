@@ -8,7 +8,7 @@ import TaskPlugin from "rete-task-plugin";
 
 import "./style.css";
 import Favicon from "./favicon.png";
-import {ConditionalComponent, KeydownComponent, LogComponent, MessageSenderComponent, RelayComponent} from "./custom_nodes.js"
+import {ConditionalComponent, KeydownComponent, LogComponent, MessageSenderComponent, RelayComponent, SpreaderComponent} from "./custom_nodes.js"
 import {clearListeners} from "./custom_nodes";
 
 document.getElementById("favicon").href = Favicon;
@@ -17,7 +17,7 @@ const VERSION = "serverlink@1.0.0";
 
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new LogComponent(), new ConditionalComponent(), new KeydownComponent(), new MessageSenderComponent(), new RelayComponent()];
+  return [new LogComponent(), new ConditionalComponent(), new SpreaderComponent(), new KeydownComponent(), new MessageSenderComponent(), new RelayComponent()];
 }
 
 function setPlugins(editor) {

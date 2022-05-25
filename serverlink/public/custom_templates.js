@@ -35,15 +35,37 @@ export const ConditionalNodeTemplate = `
   </div>
 `;
 
+export const SplitterTemplate = `
+  <div class="node {{isSelected(node)?'selected':''}} {{toClassName(node.name)}}">
+    <div class="title">{{node.name}}</div>
+    <!-- Inputs-->
+    <div al-repeat="input in Array.from(node.inputs.values())" style="text-align: left">
+      <div class="socket input {{toClassName(input.socket.name)}} {{input.multipleConnections?'multiple':''}}" al-socket="input"
+      title="{{input.socket.name}}"></div>
+      <div class="input-title" al-if="!input.showControl()">{{input.name}}</div>
+      <div class="input-control" al-if="input.showControl()" al-control></div>
+    </div>
+    <!-- Controls-->
+    <div class="btn_container">
+      <div class="control" al-repeat="control in Array.from(node.controls.values())" al-control></div>
+    </div>
+    <!-- Outputs-->
+    <div al-repeat="output in Array.from(node.outputs.values())" style="text-align: right">
+      <div class="output-title">{{output.name}}</div>
+      <div class="socket output {{toClassName(output.socket.name)}}" al-socket="output" title="{{output.socket.name}} {{output.socket.hint}}"></div>
+    </div>
+  </div>
+`;
+
+
 /* non-pug version of alight-render-plugin/src/node.pug */
 export const BasicNodeTemplate = `
   <div class="node {{isSelected(node)?'selected':''}} {{toClassName(node.name)}}">
     <div class="title">{{node.name}}</div>
-      <!-- Outputs-->
-      <div al-repeat="output in Array.from(node.outputs.values())" style="text-align: right">
-        <div class="output-title">{{output.name}}</div>
-        <div class="socket output {{toClassName(output.socket.name)}}" al-socket="output" title="{{output.socket.name}} {{output.socket.hint}}">
-      </div>
+    <!-- Outputs-->
+    <div al-repeat="output in Array.from(node.outputs.values())" style="text-align: right">
+      <div class="output-title">{{output.name}}</div>
+      <div class="socket output {{toClassName(output.socket.name)}}" al-socket="output" title="{{output.socket.name}} {{output.socket.hint}}"></div>
     </div>
     <!-- Controls-->
     <div class="control" al-repeat="control in Array.from(node.controls.values())" al-control></div>

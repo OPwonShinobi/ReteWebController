@@ -35,7 +35,7 @@ export const ConditionalNodeTemplate = `
   </div>
 `;
 
-export const SplitterTemplate = `
+export const SpreaderTemplate = `
   <div class="node {{isSelected(node)?'selected':''}} {{toClassName(node.name)}}">
     <div class="title">{{node.name}}</div>
     <!-- Inputs-->

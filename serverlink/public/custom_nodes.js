@@ -1,5 +1,5 @@
 import Rete from "rete";
-import {ConditionalNodeTemplate, SplitterTemplate} from './custom_templates';
+import {ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
 
 const actionSocket = new Rete.Socket("Action");
 const dataSocket = new Rete.Socket("Data");
@@ -298,7 +298,7 @@ export class SpreaderComponent extends Rete.Component {
     this.task = {
       "outputs": {"opt0":"option"}
     };
-    this.data.template = SplitterTemplate;
+    this.data.template = SpreaderTemplate;
   }
   getLastIdx(){
     const keys = Object.keys(this.task["outputs"]).sort();

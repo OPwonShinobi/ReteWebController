@@ -285,6 +285,40 @@ export class LogComponent extends Rete.Component {
   }
 }
 
+export class OutputComponent extends Rete.Component {
+
+  constructor() {
+    super("Output");
+    this.task = {outputs: {}}
+  }
+
+  builder(node) {
+    node
+    .addControl(new MessageControl(this.editor, node.data["msg"]))
+    .addInput(new Rete.Input("dat", "data", dataSocket));
+  }
+  worker(node) {
+    const data = popParentNodeCache(node);
+    sendGet(node.data["msg"], data);
+  }
+}
+
+function sendPost(url, data) {
+  const payload = {"dat": data};
+  const opts = { method: 'POST', body: JSON.stringify(payload) };
+  fetch(url, opts)
+  .then(rawData => rawData.text())
+  .then(data => console.log(data));
+}
+function sendGet(url, data) {
+  const urlObj = new URL(url[0] === "/" ? window.location + url : url);
+  urlObj.searchParams.append("dat", data);
+  urlObj.options = { method: 'GET' }
+  fetch(urlObj)
+  .then(rawData => rawData.text())
+  .then(data => console.log(data));
+}
+
 export class SpreaderComponent extends Rete.Component {
 
   constructor(){

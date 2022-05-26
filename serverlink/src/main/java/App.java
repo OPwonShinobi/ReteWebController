@@ -11,6 +11,7 @@ public class App extends RouterNanoHTTPD {
     addRoute("/", Homepage.class);
     addRoute("/bundle.js", Homepage.class);
     addRoute("/favicon.png", Homepage.class);
+    addRoute("/output", NodeEndPoint.class);
   }
 
   public App(final int port) throws IOException {

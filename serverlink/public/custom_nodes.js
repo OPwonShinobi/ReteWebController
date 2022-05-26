@@ -93,7 +93,7 @@ export class KeydownComponent extends Rete.Component {
   worker(node, inputs, data) {
     console.log(node.name, node.id, data);
     //outputs different for every node, this check need to go in worker func
-    if (node.outputs["act"].connections > 0) {
+    if (node.outputs["act"].connections.length > 0) {
       cacheChainingValue(node, String(data));
     }
   }
@@ -125,8 +125,8 @@ export class MessageSenderComponent extends Rete.Component {
   }
 
   worker(node) {
-    if (node.outputs["act"].connections > 0) {
-      cacheChainingValue(node, String(data));
+    if (node.outputs["act"].connections.length > 0) {
+      cacheChainingValue(node, String(node.data["msg"]));
     }
   }
 }

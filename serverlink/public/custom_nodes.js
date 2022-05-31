@@ -1,5 +1,6 @@
 import Rete from "rete";
 import {ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
+import {displayModal} from "./modal";
 
 const actionSocket = new Rete.Socket("Action");
 const dataSocket = new Rete.Socket("Data");
@@ -69,6 +70,86 @@ class ButtonControl extends Rete.Control {
     this.scope = {
       onClick : this.clickFunc.bind(parentObj)
     }
+  }
+}
+class FileControl extends Rete.Control {
+  constructor(emitter, data) {
+    super("file");
+    this.emitter = emitter;
+    const filename = data["filename"];
+    const file = data["file"];
+    this.template = `
+      <input :value="filename" @click="onChange($event)"/>
+      <input :value="file" style="display: none"/>
+      <button @click="onShow($event)">Show</button>`;
+    this.scope = {
+      file,
+      filename,
+      onChange: this.changeHandler.bind(this),
+      onShow: this.showHandler.bind(this)
+    }
+  }
+  update() {
+    this.putData("filename", this.scope.filename);
+    this.putData("file", this.scope.file);
+    this.emitter.trigger('process', {reset:false});
+    this._alight.scan();
+  }
+  showHandler(e) {
+    const jsDisplay = document.createElement("textarea");
+    jsDisplay.value = this.getData("file")
+    jsDisplay.readOnly = true;
+    displayModal(jsDisplay);
+  }
+  changeHandler(e) {
+    const elem = window.document.createElement('input');
+    elem.type = "file";
+    const parent = this;
+    elem.onchange = e => {
+      const file = e.target.files[0];
+      if (file) {
+        parent.scope.filename = file.name;
+        const reader = new FileReader();
+        reader.readAsText(file, "UTF-8");
+        reader.onload = async evt => {
+          parent.scope.file = evt.target.result;
+          parent.update();
+        };
+      }
+    };
+    document.body.appendChild(elem);
+    elem.click();
+    document.body.removeChild(elem);
+  }
+  mounted() {
+    this.scope.file = this.getData("file") || "";
+    this.scope.filename = this.getData("filename") || "";
+    this.update();
+  }
+}
+export class CustomJsComponent extends Rete.Component {
+  //workaround to tasks.run only working properly for first 2 nodes in chain
+  constructor(){
+    super("CustomJs");
+    this.task = {
+      outputs: {dat:"option"}
+    }
+  }
+
+  builder(node) {
+    node
+    .addInput(new Rete.Input("dat", "data", dataSocket))
+    .addOutput(new Rete.Output("dat", "data", dataSocket))
+    .addControl(new FileControl(this.editor, node.data));
+  }
+  worker(node) {
+    const funcStr = node.data["file"];
+    if (!funcStr) return;
+
+    const inputData = popParentNodeCache(node);
+    const func = new Function("$INPUT", funcStr);
+    const outputData = func(inputData);
+    cacheChainingValue(node, outputData);
   }
 }
 export class KeydownComponent extends Rete.Component {
@@ -144,8 +225,8 @@ export class RelayComponent extends Rete.Component {
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", dataSocket));
   }
-  worker(node, inputs) {
-    cacheChainingValue(node, inputs["dat"]);
+  worker(node) {
+    cacheChainingValue(node);
   }
 }
 //call this in every chainable node
@@ -281,7 +362,7 @@ export class LogComponent extends Rete.Component {
   }
 
   worker(node) {
-    console.log(node.name, node.id, node.data["msg"], popParentNodeCache(node));
+    console.log(`Logger id: ${node.id}, msg: ${node.data["msg"]}, data: ${popParentNodeCache(node)}`);
   }
 }
 

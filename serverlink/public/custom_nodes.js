@@ -30,6 +30,10 @@ export function clearListeners() {
 }
 const chainingData = {};
 
+function outputHasChildNodes(node, key) {
+  return node.outputs[key].connections.length > 0;
+}
+
 class MessageControl extends Rete.Control {
   constructor(emitter, msg, key) {
     const thisKey = key || "msg";
@@ -127,6 +131,29 @@ class FileControl extends Rete.Control {
     this.update();
   }
 }
+
+class RadioControl extends Rete.Control {
+  constructor(key, group, isChecked, selected) {
+    super(key);
+    this.initChecked = key === selected || isChecked;
+    this.template =`${key}<input type="radio" :checked=${this.initChecked} name="${group}" value="${key}" @change="onChange($event)"/>`;
+    this.scope = {
+      onChange: this.changeHandler.bind(this),
+    }
+  }
+  update(isChecked) {
+    if (isChecked)
+      this.putData("selected", this.key);
+    this._alight.scan();
+  }
+  changeHandler(e) {
+    this.update(e.target.checked);
+  }
+  mounted() {
+    this.update(this.initChecked);
+  }
+}
+
 export class CustomJsComponent extends Rete.Component {
   //workaround to tasks.run only working properly for first 2 nodes in chain
   constructor(){
@@ -174,7 +201,7 @@ export class KeydownComponent extends Rete.Component {
   worker(node, inputs, data) {
     console.log(node.name, node.id, data);
     //outputs different for every node, this check need to go in worker func
-    if (node.outputs["act"].connections.length > 0) {
+    if (outputHasChildNodes(node, "act")) {
       cacheChainingValue(node, String(data));
     }
   }
@@ -206,7 +233,7 @@ export class MessageSenderComponent extends Rete.Component {
   }
 
   worker(node) {
-    if (node.outputs["act"].connections.length > 0) {
+    if (outputHasChildNodes(node, "act")) {
       cacheChainingValue(node, String(node.data["msg"]));
     }
   }
@@ -370,34 +397,48 @@ export class OutputComponent extends Rete.Component {
 
   constructor() {
     super("Output");
-    this.task = {outputs: {}}
+    this.task = {
+      outputs: {"dat":"option"}
+    }
   }
 
   builder(node) {
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
-    .addInput(new Rete.Input("dat", "data", dataSocket));
+    .addControl(new RadioControl("get", this.key, true, node.data["selected"]))
+    .addControl(new RadioControl("post", this.key, false, node.data["selected"]))
+    .addInput(new Rete.Input("dat", "data", dataSocket))
+    .addOutput(new Rete.Output("dat", "data", dataSocket));
   }
-  worker(node) {
+  async worker(node) {
     const data = popParentNodeCache(node);
-    sendGet(node.data["msg"], data);
+    let rspData;
+    if (node.data["selected"] === "get") {
+      rspData = await sendGet(node.data["msg"], data);
+    } else {
+      rspData = await sendPost(node.data["msg"], data);
+    }
+    if (outputHasChildNodes(node, "dat")) {
+      cacheChainingValue(node, rspData);
+    }
   }
 }
 
-function sendPost(url, data) {
-  const payload = {"dat": data};
+async function sendPost(url, data) {
+  const endPointUrl = new URL(window.location + "/output");
+  const payload = {"url": url, "dat": data};
   const opts = { method: 'POST', body: JSON.stringify(payload) };
-  fetch(url, opts)
-  .then(rawData => rawData.text())
-  .then(data => console.log(data));
+  const rsp = await fetch(endPointUrl, opts);
+  const rspData = await rsp.text();
+  return rspData;
 }
-function sendGet(url, data) {
-  const urlObj = new URL(url[0] === "/" ? window.location + url : url);
-  urlObj.searchParams.append("dat", data);
-  urlObj.options = { method: 'GET' }
-  fetch(urlObj)
-  .then(rawData => rawData.text())
-  .then(data => console.log(data));
+async function sendGet(url, data) {
+  const endPointUrl = new URL(window.location + "/output");
+  endPointUrl.searchParams.append("url", url);
+  endPointUrl.searchParams.append("dat", data);
+  endPointUrl.options = { method: 'GET' };
+  const rsp = await fetch(endPointUrl);
+  return await rsp.text();
 }
 
 export class SpreaderComponent extends Rete.Component {
@@ -467,7 +508,7 @@ export class SpreaderComponent extends Rete.Component {
     this.closed = [];
     const dataToSave = {hasCopies: true};
     for (const key in node.outputs) {
-      if (node.outputs[key].connections.length > 0) {
+      if (outputHasChildNodes(node, key)) {
         //childId saved in connection.node field
         const childId = node.outputs[key].connections[0].node;
         dataToSave[childId] = spreadData;

@@ -1,7 +1,11 @@
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.router.RouterNanoHTTPD;
+import org.java_websocket.server.WebSocketServer;
 
 public class App extends RouterNanoHTTPD {
   private static final int PORT = 8080;
@@ -11,7 +15,7 @@ public class App extends RouterNanoHTTPD {
     addRoute("/", Homepage.class);
     addRoute("/bundle.js", Homepage.class);
     addRoute("/favicon.png", Homepage.class);
-    addRoute("/output", NodeEndPoint.class);
+    addRoute("/output", PrivateNodeEndPoint.class);
   }
 
   public App(final int port) throws IOException {
@@ -26,9 +30,17 @@ public class App extends RouterNanoHTTPD {
     if (args.length > 1) {
       port = Integer.parseInt(args[1]);
     }
+    int wsPort = port+1;
     try {
       new App(port);
-    } catch (IOException ioe) {
+      //use 8081 by default
+      InetSocketAddress wsSocketAddr = new InetSocketAddress("localhost", wsPort);
+      WebSocketServer server = new SimpleWebSocketServer(wsSocketAddr);
+      SimpleWebSocketClient client = new SimpleWebSocketClient(new URI("ws://localhost:"+wsPort) );
+      PublicNodeEndPoint.setWsClient(client);
+      server.run();
+      client.connect();
+    } catch (IOException | URISyntaxException ioe) {
       System.err.println("Couldn't start server:\n" + ioe);
     }
   }

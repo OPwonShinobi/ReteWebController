@@ -15,7 +15,7 @@ public class App extends RouterNanoHTTPD {
     addRoute("/", Homepage.class);
     addRoute("/bundle.js", Homepage.class);
     addRoute("/favicon.png", Homepage.class);
-    addRoute("/output", PrivateNodeEndPoint.class);
+    addRoute("/input", PublicNodeEndPoint.class);
   }
 
   public App(final int port) throws IOException {
@@ -36,11 +36,11 @@ public class App extends RouterNanoHTTPD {
       //use 8081 by default
       InetSocketAddress wsSocketAddr = new InetSocketAddress("localhost", wsPort);
       WebSocketServer server = new SimpleWebSocketServer(wsSocketAddr);
-      SimpleWebSocketClient client = new SimpleWebSocketClient(new URI("ws://localhost:"+wsPort) );
-      PublicNodeEndPoint.setWsClient(client);
+      //SimpleWebSocketClient client = new SimpleWebSocketClient(new URI("ws://localhost:"+wsPort) );
+      PublicNodeEndPoint.setWsServer(server);
       server.run();
-      client.connect();
-    } catch (IOException | URISyntaxException ioe) {
+      //client.connect();
+    } catch (IOException ioe) {
       System.err.println("Couldn't start server:\n" + ioe);
     }
   }

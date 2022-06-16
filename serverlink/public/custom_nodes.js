@@ -1,6 +1,7 @@
 import Rete from "rete";
 import {ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
 import {displayModal} from "./modal";
+import {sendSyncWebSockMsg, sendWebSockMsg} from "./web_socket_client";
 
 const actionSocket = new Rete.Socket("Action");
 const dataSocket = new Rete.Socket("Data");
@@ -394,36 +395,30 @@ export class LogComponent extends Rete.Component {
 }
 
 export class OutputComponent extends Rete.Component {
-
   constructor() {
     super("Output");
     this.task = {
       outputs: {"dat":"option"}
     }
   }
-
   builder(node) {
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
-    .addControl(new RadioControl("get", this.key, true, node.data["selected"]))
-    .addControl(new RadioControl("post", this.key, false, node.data["selected"]))
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", dataSocket));
   }
   async worker(node) {
     const data = popParentNodeCache(node);
-    let rspData;
-    if (node.data["selected"] === "get") {
-      rspData = await sendGet(node.data["msg"], data);
-    } else {
-      rspData = await sendPost(node.data["msg"], data);
-    }
+    //TODO, need to find a way to add response to cacheChainingValue
+    //maybe fetch some sort Promise from web_socket_client, and await resolve?
     if (outputHasChildNodes(node, "dat")) {
-      cacheChainingValue(node, rspData);
+      await sendSyncWebSockMsg(data);
+      cacheChainingValue(node);
+    } else {
+      sendWebSockMsg(data);
     }
   }
 }
-
 async function sendPost(url, data) {
   const endPointUrl = new URL(window.location + "/output");
   const payload = {"url": url, "dat": data};

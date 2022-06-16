@@ -15,6 +15,7 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
+@Deprecated
 public class PrivateNodeEndPoint extends RouterNanoHTTPD.GeneralHandler  {
   private enum HttpMethod {
     POST, GET

@@ -1,9 +1,11 @@
 import Rete from "rete";
 import {ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
 import {displayModal} from "./modal";
-import {sendSyncWebSockMsg, sendWebSockMsg} from "./web_socket_client";
-
+import {WebSockFields, WebSockType} from "./web_socket_client";
 const actionSocket = new Rete.Socket("Action");
+
+import {v4} from "uuid";
+// const uuid = require("uuid");
 const dataSocket = new Rete.Socket("Data");
 actionSocket.combineWith(dataSocket);
 
@@ -266,6 +268,9 @@ function cacheChainingValue(node, val) {
     chainingData[node.id] = popParentNodeCache(node);
   }
 }
+function popCurrentNodeCache(node) {
+  return chainingData[node.id];
+}
 //call this in every chainable or potential leaf node
 function popParentNodeCache(node) {
   //node saves child node id in "node" field, not id field
@@ -390,50 +395,123 @@ export class LogComponent extends Rete.Component {
   }
 
   worker(node) {
-    console.log(`Logger id: ${node.id}, msg: ${node.data["msg"]}, data: ${popParentNodeCache(node)}`);
+    let data = popParentNodeCache(node);
+    console.log(`Logger id: ${node.id}, msg: ${node.data["msg"]}, data: ${JSON.stringify(data)}`);
   }
 }
 
 export class OutputComponent extends Rete.Component {
   constructor() {
     super("Output");
+    const parent = this;
     this.task = {
-      outputs: {"dat":"option"}
+      outputs: {"dat":"option"},
+      init(task) {
+        parent.socket.onmessage = function (event) {
+          const rsp = JSON.parse(event.data);
+          if (["RENAME", "BROADCAST"].includes(rsp["TYPE"]))
+            return;
+          task.run(event.data, parent);
+          task.reset();
+        };
+      }
     }
   }
   builder(node) {
+    this.node = node;
+    createWsConnection(this);
+    if (this.socket) {
+      cacheChainingValue(node, this.socket); //workaround for worker method needing this.socket
+    }
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
     .addInput(new Rete.Input("dat", "data", dataSocket))
-    .addOutput(new Rete.Output("dat", "data", dataSocket));
+    .addOutput(new Rete.Output("dat", "trigger", actionSocket));
   }
-  async worker(node) {
-    const data = popParentNodeCache(node);
-    //TODO, need to find a way to add response to cacheChainingValue
-    //maybe fetch some sort Promise from web_socket_client, and await resolve?
-    if (outputHasChildNodes(node, "dat")) {
-      await sendSyncWebSockMsg(data);
-      cacheChainingValue(node);
+  //called twice, once by parent node, once after ws backend returns response
+  worker(node, inputs, data) {
+    //called by websock
+    if (data) {
+      console.log("ws endpoint returned", data);
+    //called by parent node
+      if (outputHasChildNodes(node, "dat")) {
+        cacheChainingValue(node, data);
+      }
     } else {
-      sendWebSockMsg(data);
+      console.log("calling ws endpoint");
+      const cachedSocket = popCurrentNodeCache(node);
+      const cachedData = popParentNodeCache(node);
+      sendHttpReq(cachedSocket, cachedData);
+      this.closed = ["dat"]; //prevent propagation until second run
     }
   }
 }
-async function sendPost(url, data) {
-  const endPointUrl = new URL(window.location + "/output");
-  const payload = {"url": url, "dat": data};
-  const opts = { method: 'POST', body: JSON.stringify(payload) };
-  const rsp = await fetch(endPointUrl, opts);
-  const rspData = await rsp.text();
-  return rspData;
+function createWsConnection(src) {
+  //is main pane and not side bar editor
+  if (src.editor.components.size > 0) {
+    src.socket = new WebSocket('ws://localhost:8081');
+    src.oldName = src.node.data["msg"] || v4(); //default to random uuid for new nodes
+    src.socket.onopen = function () { //slight inconsistent delay before socket open
+      sendRenameReq(src);
+    }.bind(src);
+    src.node.destructor = function() {
+      src.socket.close();
+    };
+  }
 }
-async function sendGet(url, data) {
-  const endPointUrl = new URL(window.location + "/output");
-  endPointUrl.searchParams.append("url", url);
-  endPointUrl.searchParams.append("dat", data);
-  endPointUrl.options = { method: 'GET' };
-  const rsp = await fetch(endPointUrl);
-  return await rsp.text();
+function sendRenameReq(src) {
+  const req = {};
+  req[WebSockFields.MESSAGE_TYPE] = WebSockType.RENAME;
+  req[WebSockFields.OLD_NAME] = src.oldName;
+  req[WebSockFields.NEW_NAME] = src.node.data["msg"] || src.oldName;
+  src.oldName = src.node.data["msg"] || src.oldName;
+  src.socket.send(JSON.stringify(req));
+}
+function sendHttpReq(socket, data) {
+  const req = {};
+  req[WebSockFields.MESSAGE_TYPE] = WebSockType.HTTP;
+  req[WebSockFields.PAYLOAD] = data;
+  socket.send(JSON.stringify(req));
+}
+
+export class InputComponent extends Rete.Component {
+  constructor() {
+    super("Input");
+    const parent = this;
+    this.task = {
+      outputs: {"dat": "option"},
+      init(task) {
+        parent.socket.onmessage = function (event) {
+          const rsp = JSON.parse(event.data);
+          if (rsp["TYPE"] === "RENAME")
+              return;
+          task.run(event.data);
+          task.reset();
+        };
+      }
+    }
+  }
+
+  builder(node) {
+    this.node = node;
+    createWsConnection(this);
+    node
+    .addControl(new MessageControl(this.editor, node.data["msg"]))
+    .addControl(new ButtonControl("SetConnName","Save", this.setConnName, this))
+    .addOutput(new Rete.Output("dat", "trigger", actionSocket));
+  }
+  setConnName() {
+    if (!this.node.data["msg"]) {
+      alert("Saved connection name cannot be empty");
+      return;
+    }
+    sendRenameReq(this);
+  }
+  worker(node, inputs, data) {
+    if (outputHasChildNodes(node, "dat")) {
+      cacheChainingValue(node, data);
+    }
+  }
 }
 
 export class SpreaderComponent extends Rete.Component {

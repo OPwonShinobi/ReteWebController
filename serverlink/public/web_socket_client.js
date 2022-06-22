@@ -1,23 +1,35 @@
 // Create WebSocket connection. Note this runs in App, but is separate from main server
 // Connection closes by itself on page refresh. No need to clean up
-const socket = new WebSocket('ws://localhost:8081');
-
-// Connection opened
-socket.addEventListener('open', function (event) {
-  socket.send('Browser connected.');
-});
-
-// Listen for messages
-socket.addEventListener('message', function (event) {
-  console.log('WebSocket Recv:', event.data);
-
-  //figure out what window.event to send (engine listens on event
-});
-
-export function sendWebSockMsg(msg) {
-  socket.send(msg);
+export class WebSockType {
+  static CLOSE = "EOT";
+  static BROADCAST = "BROADCAST";
+  static HTTP = "HTTP";
+  static INVALID = "ERR";
+  static RENAME = "RENAME";
 }
-export function sendSyncWebSockMsg(msg) {
-  socket.send(msg);
-  //TODO, wat we gone do, poll here until something is defined?
+export class WebSockFields {
+  static MESSAGE_TYPE = "TYPE";
+  static NEW_NAME = "NEW_NAME";
+  static OLD_NAME = "OLD_NAME";
+  static DEST = "DEST";
+  static PAYLOAD = "PAYLOAD";
+  static METHOD = "METHOD";
+}
+export class WebSockUtils {
+  static getWsKey(jsonObj) {
+    let res = jsonObj[WebSockFields.MESSAGE_TYPE];
+    switch(res) {
+      case WebSockType.CLOSE:
+      case WebSockType.BROADCAST:
+      case WebSockType.HTTP:
+      case WebSockType.RENAME:
+        break;
+      default:
+        res = WebSockType.INVALID;
+    }
+    return res;
+  }
+  static getWsPayload(jsonObj) {
+    return jsonObj[WebSockFields.PAYLOAD];
+  }
 }

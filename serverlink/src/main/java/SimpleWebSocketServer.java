@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
@@ -14,10 +15,12 @@ import org.json.JSONObject;
 
 public class SimpleWebSocketServer extends WebSocketServer {
   private Map<String, WebSocket> connLookup = new HashMap<>();
+  private ConfigurationHandler configHandler;
 
-  public SimpleWebSocketServer(InetSocketAddress address) {
+  public SimpleWebSocketServer(InetSocketAddress address, ConfigurationHandler configHandler) {
     super(address);
     System.out.println(String.format("\nStarting websocket server at %s:%d\n", address.getHostName(), address.getPort()));
+    this.configHandler = configHandler;
   }
 
   public void broadcastByConnName(JSONObject req, String name) {
@@ -41,16 +44,15 @@ public class SimpleWebSocketServer extends WebSocketServer {
   public void onMessage(WebSocket conn, String message) {
     System.out.println("received message from "	+ conn.getRemoteSocketAddress() + ": " + message);
     JSONObject jsonObj = new JSONObject(message);
-    WebSocketUtils.Type msgType = WebSocketUtils.Type.parse(jsonObj.getString(WebSocketUtils.MESSAGE_TYPE));
+    WebSocketUtils.Type msgType = WebSocketUtils.Type.parse(jsonObj.getString(WebSocketUtils.TYPE));
     JSONObject rspObj = new JSONObject();
-    rspObj.append(WebSocketUtils.MESSAGE_TYPE, msgType);
+    rspObj.append(WebSocketUtils.TYPE, msgType);
 
     if (msgType == WebSocketUtils.Type.RENAME) {
       changeConnName(jsonObj, conn);
     }
     else if (msgType == WebSocketUtils.Type.HTTP) {
-//      rspObj.put(WebSocketUtils.PAYLOAD, sendHttpRequestWithResponse(jsonObj));
-      rspObj.put(WebSocketUtils.PAYLOAD, "test resp");
+      rspObj.put(WebSocketUtils.PAYLOAD, sendHttpRequestWithResponse(jsonObj));
       conn.send(rspObj.toString());
     }
   }
@@ -59,21 +61,27 @@ public class SimpleWebSocketServer extends WebSocketServer {
     connLookup.put(jsonObj.getString(WebSocketUtils.NEW_NAME), conn);
   }
   private String sendHttpRequestWithResponse(JSONObject jsonObj) {
-    String dst = jsonObj.getString(WebSocketUtils.DEST);
-    String data = jsonObj.getString(WebSocketUtils.PAYLOAD);
-    String method = jsonObj.getString(WebSocketUtils.METHOD);
+    String payload = jsonObj.getString(WebSocketUtils.PAYLOAD);
+    String endPointName = jsonObj.getString(WebSocketUtils.ENDPOINT);
+    JSONObject endPoint = configHandler.getEndPoint(endPointName);
+
+    String dst = endPoint.getString("dest");
+    String method = endPoint.getString("method");
+    JSONObject headers = endPoint.getJSONObject("headers");
     try {
       URL url = new URL(dst);
       HttpURLConnection conn = (HttpURLConnection) url.openConnection();
       conn.setRequestMethod(method);
+      for (String field : headers.keySet()) {
+        conn.setRequestProperty(field, headers.getString(field));
+      }
 
-      //Send request
-      DataOutputStream wr = new DataOutputStream (
-        conn.getOutputStream());
-      wr.writeBytes(data);
+      //request
+      DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
+      wr.writeBytes(payload);
       wr.close();
 
-      //Get Response
+      //response
       BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
       StringBuilder response = new StringBuilder();
       String inputLine;
@@ -83,7 +91,7 @@ public class SimpleWebSocketServer extends WebSocketServer {
       }
       in.close();
       return response.toString();
-    } catch (Exception e) {
+    } catch (IOException e) {
       e.printStackTrace();
       return null;
     }

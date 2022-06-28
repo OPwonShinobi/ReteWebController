@@ -1,14 +1,11 @@
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
 
 import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.router.RouterNanoHTTPD;
 import org.java_websocket.server.WebSocketServer;
 
 public class App extends RouterNanoHTTPD {
-  private static final int PORT = 8080;
 
   @Override
   public void addMappings() {
@@ -16,6 +13,7 @@ public class App extends RouterNanoHTTPD {
     addRoute("/bundle.js", Homepage.class);
     addRoute("/favicon.png", Homepage.class);
     addRoute("/input", PublicNodeEndPoint.class);
+    addRoute("/config", ConfigEndPoint.class);
   }
 
   public App(final int port) throws IOException {
@@ -25,24 +23,15 @@ public class App extends RouterNanoHTTPD {
     System.out.println(String.format("\nRunning! Point your browsers to http://localhost:%d/ \n", port));
   }
 
-  public static void main(String[] args) {
-    int port = PORT;
-    if (args.length > 1) {
-      port = Integer.parseInt(args[1]);
-    }
-    int wsPort = port+1;
-    try {
-      new App(port);
-      //use 8081 by default
-      InetSocketAddress wsSocketAddr = new InetSocketAddress("localhost", wsPort);
-      WebSocketServer server = new SimpleWebSocketServer(wsSocketAddr);
-      //SimpleWebSocketClient client = new SimpleWebSocketClient(new URI("ws://localhost:"+wsPort) );
-      PublicNodeEndPoint.setWsServer(server);
-      server.run();
-      //client.connect();
-    } catch (IOException ioe) {
-      System.err.println("Couldn't start server:\n" + ioe);
-    }
+  public static void main(String[] args) throws IOException {
+    ConfigurationHandler configHandler = new ConfigurationHandler();
+    new App(configHandler.getServerPort());
+    InetSocketAddress wsSocketAddr = new InetSocketAddress("localhost", configHandler.getWebSockPort());
+    WebSocketServer server = new SimpleWebSocketServer(wsSocketAddr, configHandler);
+    PublicNodeEndPoint.setWsServer(server);
+    ConfigEndPoint.setConfigHandler(configHandler);
+
+    server.run();
   }
 
 }

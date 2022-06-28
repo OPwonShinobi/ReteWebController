@@ -1,13 +1,31 @@
 import Rete from "rete";
 import {ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
 import {displayModal} from "./modal";
-import {WebSockFields, WebSockType} from "./web_socket_client";
+import {WebSockFields, WebSockType, WebSockUtils} from "./web_socket_client";
 const actionSocket = new Rete.Socket("Action");
 
 import {v4} from "uuid";
 // const uuid = require("uuid");
 const dataSocket = new Rete.Socket("Data");
 actionSocket.combineWith(dataSocket);
+
+var ws_port = 0;
+fetch("/config?type=setting&name=ws_port")
+.then(rsp => rsp.json())
+.then(port =>
+  ws_port = port
+);
+var endpointNames = [];
+fetch("/config?type=endpoint")
+.then(rsp => rsp.json())
+.then(rspData => {
+  if (rspData.length === 0) {
+    alert("No endpoints added! Output nodes unusable.");
+  }
+  endpointNames = rspData;
+}).catch(err => {
+  console.error("Error fetching node endpoints:" + err);
+});
 
 const eventListeners = {
   list: [],
@@ -43,7 +61,7 @@ class MessageControl extends Rete.Control {
     super(thisKey);
     this.key = thisKey;
     this.emitter = emitter;
-    this.template = `<input :value="msg" @input="change($event)"/>`;
+    this.template = `<input :value="msg" @input="change($event)" @pointermove.stop=""/>`;
     this.scope = {
       msg,
       change: this.changeHandler.bind(this)
@@ -86,7 +104,7 @@ class FileControl extends Rete.Control {
     const filename = data["filename"];
     const file = data["file"];
     this.template = `
-      <input :value="filename" @click="onChange($event)"/>
+      <input :value="filename" @click="onChange($event)" @pointermove.stop=""/>
       <input :value="file" style="display: none"/>
       <button @click="onShow($event)">Show</button>`;
     this.scope = {
@@ -154,6 +172,37 @@ class RadioControl extends Rete.Control {
   }
   mounted() {
     this.update(this.initChecked);
+  }
+}
+class DropdownControl extends Rete.Control {
+  constructor(emitter, key, value, configType) {
+    super(key);
+    this.emitter = emitter;
+    this.template =`<select :value="value" @change="onChange($event)" @pointermove.stop="">`;
+    this.scope = {
+      value,
+      onChange: this.changeHandler.bind(this),
+      optionClicked: this.optionClickHandler.bind(this),
+    };
+    if (isMainpane(emitter) && configType === "endpoint") {
+      endpointNames.forEach(name => {
+        this.template += `<option value="${name}" ${name === value ? "selected":""} @click="optionClicked($event)">${name}</option>`
+      })
+      this.template += `</select>`
+    }
+  }
+  changeHandler(e) {
+    this.update(e.target.value);
+  }
+  optionClickHandler(e) {
+    this.emitter.trigger("click");//click background, workaround for node staying selected after option clicked
+  }
+  mounted() {
+    this.update(this.value);
+  }
+  update(value) {
+    this.putData("selected", value);
+    this._alight.scan();
   }
 }
 
@@ -424,23 +473,22 @@ export class OutputComponent extends Rete.Component {
       cacheChainingValue(node, this.socket); //workaround for worker method needing this.socket
     }
     node
-    .addControl(new MessageControl(this.editor, node.data["msg"]))
+    .addControl(new DropdownControl(this.editor, "endpoint_picker", node.data["selected"], "endpoint"))
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "trigger", actionSocket));
   }
   //called twice, once by parent node, once after ws backend returns response
   worker(node, inputs, data) {
-    //called by websock
     if (data) {
-      console.log("ws endpoint returned", data);
-    //called by parent node
+      //2nd run, worker called by websock
       if (outputHasChildNodes(node, "dat")) {
         cacheChainingValue(node, data);
       }
     } else {
-      console.log("calling ws endpoint");
+      //1st run, worker called by parent node
       const cachedSocket = popCurrentNodeCache(node);
       const cachedData = popParentNodeCache(node);
+      cachedData[WebSockFields.ENDPOINT] = node.data["selected"];
       sendHttpReq(cachedSocket, cachedData);
       this.closed = ["dat"]; //prevent propagation until second run
     }
@@ -448,8 +496,8 @@ export class OutputComponent extends Rete.Component {
 }
 function createWsConnection(src) {
   //is main pane and not side bar editor
-  if (src.editor.components.size > 0) {
-    src.socket = new WebSocket('ws://localhost:8081');
+  if (isMainpane(src.editor)) {
+    src.socket = new WebSocket('ws://localhost:' + ws_port);
     src.oldName = src.node.data["msg"] || v4(); //default to random uuid for new nodes
     src.socket.onopen = function () { //slight inconsistent delay before socket open
       sendRenameReq(src);
@@ -459,9 +507,12 @@ function createWsConnection(src) {
     };
   }
 }
+function isMainpane(editor) {
+  return editor.components.size > 0;
+}
 function sendRenameReq(src) {
   const req = {};
-  req[WebSockFields.MESSAGE_TYPE] = WebSockType.RENAME;
+  req[WebSockFields.TYPE] = WebSockType.RENAME;
   req[WebSockFields.OLD_NAME] = src.oldName;
   req[WebSockFields.NEW_NAME] = src.node.data["msg"] || src.oldName;
   src.oldName = src.node.data["msg"] || src.oldName;
@@ -469,7 +520,7 @@ function sendRenameReq(src) {
 }
 function sendHttpReq(socket, data) {
   const req = {};
-  req[WebSockFields.MESSAGE_TYPE] = WebSockType.HTTP;
+  req[WebSockFields.TYPE] = WebSockType.HTTP;
   req[WebSockFields.PAYLOAD] = data;
   socket.send(JSON.stringify(req));
 }

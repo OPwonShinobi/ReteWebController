@@ -25,10 +25,10 @@ public class PublicNodeEndPoint extends RouterNanoHTTPD.GeneralHandler  {
       JSONObject req = new JSONObject();
       req.put(WebSocketUtils.PAYLOAD, params.get("postData"));
       if (session.getParameters().isEmpty()) {
-        req.put(WebSocketUtils.MESSAGE_TYPE, WebSocketUtils.Type.BROADCAST);
+        req.put(WebSocketUtils.TYPE, WebSocketUtils.Type.BROADCAST);
         _wsServer.broadcast(req.toString());
       } else {
-        req.put(WebSocketUtils.MESSAGE_TYPE, WebSocketUtils.Type.HTTP);
+        req.put(WebSocketUtils.TYPE, WebSocketUtils.Type.HTTP);
         String name = session.getParameters().get("name").get(0);
         ((SimpleWebSocketServer)_wsServer).broadcastByConnName(req, name);
       }

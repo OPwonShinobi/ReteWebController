@@ -3,7 +3,7 @@
   "ws_port": 8081,
   "endpoints" : {
     "example": {
-      "dest": "192.168.1.128:8080",
+      "dest": "<scheme>://<authority><path>?<query>#<fragment>",
       "method": "GET",
       "headers": {
         "content-type": "application/json"

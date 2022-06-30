@@ -363,10 +363,13 @@ export class ConditionalComponent extends Rete.Component {
       return
     }
     const key = "opt" + idx;
-    //cant set null, need to delete to remove key
+    const output = this.node.outputs.get(key);
+    if (output.hasConnection()) {
+      this.editor.removeConnection(output.connections[0]);
+    }
     delete this.task["outputs"][key];
-    this.node.removeControl(this.node.controls[key]);
-    this.node.removeOutput(this.node.outputs[key]);
+    this.node.removeControl(this.node.controls.get(key));
+    this.node.removeOutput(this.node.outputs.get(key));
     try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
   }
   addHandler() {
@@ -593,6 +596,7 @@ export class SpreaderComponent extends Rete.Component {
     this.node.removeOutput(output);
     //cant set null, need to delete to remove key
     delete this.task["outputs"][key];
+    //unlike cond node, only spreader node saves outputs as extra data for reloading graph.
     delete this.node.data[key];
     //removing output often doesnt trigger ui refresh, send refresh manually
     try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}

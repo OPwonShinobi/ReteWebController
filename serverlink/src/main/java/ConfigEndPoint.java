@@ -1,7 +1,6 @@
 import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.router.RouterNanoHTTPD;
 
-import java.util.List;
 import java.util.Map;
 
 public class ConfigEndPoint extends RouterNanoHTTPD.GeneralHandler{

@@ -10,16 +10,15 @@ Setting up in intelliJ:
 
 4. Create run & debug configurations in IntelliJ (clicking green arrow next to main method in App.java will generate it)
 
-Server:
-Create the standalone server "serverlink-1.0-SNAPSHOT-shaded.jar"
-	mvn install
+## Server ##
+Run ```mvn install``` to create standalone jar "serverlink-1.0-SNAPSHOT-shaded.jar"
 
-Web:
+## Web ##
 	Release:
 		npm run buildDev
 		npm run buildProd
 	Debug:
-		(without server running)
+		(without server running, for dev use only. Many functions won't work.)
 		npm run headless
-		(with server running, need to restart server to apply changes)
+		(with server running, refresh page to apply changes)
 		npm run devServer

@@ -89,7 +89,6 @@ class ButtonControl extends Rete.Control {
   constructor(key, display, clickFunc, parentObj) {
     const thisKey = key || "btn";
     super(thisKey);
-    this.key = thisKey;
     this.clickFunc = clickFunc;
     this.template = `<button class="${display}" @click="onClick($event)">${display}</button>`;
     this.scope = {
@@ -98,41 +97,50 @@ class ButtonControl extends Rete.Control {
   }
 }
 class FileControl extends Rete.Control {
-  constructor(emitter, data) {
-    super("file");
+  constructor(emitter, data, key) {
+    const thisKey = key || "file";
+    super(thisKey);
     this.emitter = emitter;
-    const filename = data["filename"];
-    const file = data["file"];
+    this.key = thisKey;
+    data = data || {};
+    const filename = data[key + "filename"];
+    const file = data[key + "file"];
     this.template = `
-      <input :value="filename" @click="onChange($event)" @pointermove.stop=""/>
+      <input :value="filename" @dblclick="loadFile($event)" @input="renameFile($event)" @pointermove.stop=""/>
       <input :value="file" style="display: none"/>
-      <button @click="onShow($event)">Show</button>`;
+      <button @click="showFile($event)">Show</button>`;
     this.scope = {
       file,
       filename,
-      onChange: this.changeHandler.bind(this),
-      onShow: this.showHandler.bind(this)
+      loadFile: this.loadHandler.bind(this),
+      showFile: this.showHandler.bind(this),
+      renameFile: this.renameHandler.bind(this)
     }
   }
   update() {
-    this.putData("filename", this.scope.filename);
-    this.putData("file", this.scope.file);
+    this.putData(this.key, "");
+    this.putData(this.key + "filename", this.scope.filename);
+    this.putData(this.key + "file", this.scope.file);
     this.emitter.trigger('process', {reset:false});
     this._alight.scan();
   }
   showHandler(e) {
     const jsDisplay = document.createElement("textarea");
-    jsDisplay.value = this.getData("file")
-    jsDisplay.readOnly = true;
+    jsDisplay.value = this.getData(this.key + "file")
+    jsDisplay.onchange = (() => {
+      this.scope.file = jsDisplay.value;
+      this.update();
+    }).bind(this);
     displayModal(jsDisplay);
   }
-  changeHandler(e) {
+  loadHandler(e) {
     const elem = window.document.createElement('input');
     elem.type = "file";
     const parent = this;
     elem.onchange = e => {
       const file = e.target.files[0];
       if (file) {
+        //setting filename input thru code will not trigger renameHandler
         parent.scope.filename = file.name;
         const reader = new FileReader();
         reader.readAsText(file, "UTF-8");
@@ -146,9 +154,13 @@ class FileControl extends Rete.Control {
     elem.click();
     document.body.removeChild(elem);
   }
+  renameHandler(e) {
+    this.scope.filename = e.target.value;
+    this.update();
+  }
   mounted() {
-    this.scope.file = this.getData("file") || "";
-    this.scope.filename = this.getData("filename") || "";
+    this.scope.file = this.getData(this.key + "file") || "";
+    this.scope.filename = this.getData(this.key + "filename") || "";
     this.update();
   }
 }
@@ -205,9 +217,17 @@ class DropdownControl extends Rete.Control {
     this._alight.scan();
   }
 }
-
+function runCustomCode(funcStr, inputData) {
+//funcStr can be null, new Function still runs
+  const func = new Function("$INPUT", funcStr);
+  let outputData = null;
+  try {outputData = func(inputData);}
+  catch (e) {
+    outputData = e;
+  }
+  return outputData;
+}
 export class CustomJsComponent extends Rete.Component {
-  //workaround to tasks.run only working properly for first 2 nodes in chain
   constructor(){
     super("CustomJs");
     this.task = {
@@ -223,11 +243,8 @@ export class CustomJsComponent extends Rete.Component {
   }
   worker(node) {
     const funcStr = node.data["file"];
-    if (!funcStr) return;
-
     const inputData = popParentNodeCache(node);
-    const func = new Function("$INPUT", funcStr);
-    const outputData = func(inputData);
+    const outputData = runCustomCode(funcStr, inputData)
     cacheChainingValue(node, outputData);
   }
 }
@@ -291,7 +308,6 @@ export class MessageSenderComponent extends Rete.Component {
   }
 }
 export class RelayComponent extends Rete.Component {
-  //workaround to tasks.run only working properly for first 2 nodes in chain
   constructor(){
     super("Relay");
     this.task = {
@@ -369,6 +385,8 @@ export class ConditionalComponent extends Rete.Component {
     }
     delete this.task["outputs"][key];
     this.node.removeControl(this.node.controls.get(key));
+    delete this.node.data[key + "file"];
+    delete this.node.data[key + "filename"];
     this.node.removeOutput(this.node.outputs.get(key));
     try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
   }
@@ -379,7 +397,7 @@ export class ConditionalComponent extends Rete.Component {
     try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
   }
   addCond(key){
-    const ctrl = new MessageControl(this.editor, this.node["data"][key], key);
+    const ctrl = new FileControl(this.editor, this.node["data"][key], key);
     this.node.addControl(ctrl);
     const output = new Rete.Output(key, "else if", dataSocket);
     this.node.addOutput(output)
@@ -396,13 +414,13 @@ export class ConditionalComponent extends Rete.Component {
     //due to tech limitation, else must be first
     .addOutput(new Rete.Output("else", "else", dataSocket))
     .addOutput(new Rete.Output(defaultCond, "if", dataSocket))
-    .addControl(new MessageControl(this.editor, this.node["data"][defaultCond], defaultCond));
+    .addControl(new FileControl(this.editor, this.node["data"][defaultCond], defaultCond));
 
     //extra conditions
     for(const key in this.node["data"]) {
-      if (key !== defaultCond) {
+      if (key === defaultCond) continue;
+      if (!key.includes("file"))
         this.addCond(key);
-      }
     }
   }
   worker(node) {
@@ -414,7 +432,9 @@ export class ConditionalComponent extends Rete.Component {
     for (const key in node.outputs) {
       if (key === "else") {continue;}
       if (node.outputs[key].connections.length === 0) {continue;}
-      if (data === node.data[key]) {
+      const funcStr = node.data[key + "file"];
+      const isMatch = Boolean(runCustomCode(funcStr, data));
+      if (isMatch) {
         matches++;
         const childId = node.outputs[key].connections[0].node;
         dataToBeCached[childId] = data;
@@ -422,13 +442,17 @@ export class ConditionalComponent extends Rete.Component {
         this.closed.push(key);
       }
     }
+
     if (matches > 0) {
       this.closed.push("else");
     } else {
-      const childId = node.outputs["else"].connections[0].node;
-      dataToBeCached[childId] = data;
+      const elseClause = node.outputs["else"].connections;
+      if (elseClause.length) {
+        const childId = elseClause[0].node;
+        dataToBeCached[childId] = data;
+      }
     }
-    cacheChainingValue(node, data);
+    cacheChainingValue(node, dataToBeCached);
   }
 }
 

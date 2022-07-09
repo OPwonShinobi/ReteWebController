@@ -20,6 +20,7 @@ import {
   OutputComponent,
   InputComponent
 } from "./custom_nodes"
+import {displayModal} from "./modal";
 
 document.getElementById("favicon").href = Favicon;
 
@@ -80,22 +81,31 @@ async function loadMainpane() {
   });
   editor.trigger("process", {reset:true});
   loadHandlers(editor);
+  loadSave();
+}
+function loadSave() {
+  const savedGraphJson = sessionStorage.getItem("SAVED_GRAPH");
+  if (savedGraphJson) {
+    //no need for error checking, only way to add save is through valid existing graph
+    editor.fromJSON(JSON.parse(savedGraphJson));
+  }
+  return Boolean(savedGraphJson);
 }
 
 function loadHandlers(editor) {
-  // btn handlers
   document.getElementById("run_btn").onclick = handleRun;
-  document.getElementById("load_btn").onclick = handleLoad.bind(null, editor);
-  document.getElementById("save_btn").onclick = handleSave.bind(null, editor);
-  document.getElementById("settings_btn").onclick = handleSettings;
+  document.getElementById("import_btn").onclick = handleImport.bind(null, editor);
+  document.getElementById("export_btn").onclick = handleExport.bind(null, editor);
+  document.getElementById("settings_btn").onclick = handleSettings.bind(null, editor);
 }
 function handleRun() {
+  //new ui for selecting run now/later
   console.log("run triggered", new Date());
   document.dispatchEvent(new CustomEvent("run", {}));
 }
 
 //to keep ui clean, use temporary <input> and <a> elems for file upload n download
-function handleLoad(editor) {
+function handleImport(editor) {
   const elem = window.document.createElement('input');
   elem.type = "file";
   elem.onchange = e => {
@@ -117,7 +127,7 @@ function handleLoad(editor) {
   elem.click();
   document.body.removeChild(elem);
 }
-function handleSave(editor) {
+function handleExport(editor) {
   const filename = prompt("Filename");
   if (!filename){
     return;
@@ -137,8 +147,50 @@ function handleSave(editor) {
   }
 }
 
-function handleSettings() {
-  console.log("settingsHandler");
+function htmlToElement(html) {
+  const template = document.createElement('template');
+  html = html.trim();
+  template.innerHTML = html;
+  return template.content.firstChild;
+}
+
+function handleSettings(editor) {
+  const isSaved = Boolean(sessionStorage.getItem("SAVED_GRAPH"));
+  displayModal(
+    htmlToElement(`
+    <form style="background-color: white" id="modalForm">
+      <h4>Settings</h4>
+      <input type="radio" name="loadOnStart" id="loadOnStartOn" disabled ${isSaved ? "checked" : ""}>
+      <label for="loadOnStartOn">Saved</label>
+      <input type="radio" name="loadOnStart" id="loadOnStartOff" value="off" disabled ${!isSaved ? "checked" : ""}>
+      <label for="loadOnStartOff">Unsaved</label>
+      <p>Cache actions:</p>
+      <button id="saveToCacheBtn">Save To Cache</button>      
+      <button id="loadFromCacheBtn">Load From Cache</button>
+      <button id="clearFromCacheBtn">Delete From Cache</button>
+    </form>
+    `)
+  );
+  document.getElementById("modalForm").onsubmit = () => {return false};
+  document.getElementById("saveToCacheBtn").addEventListener("click", function () {
+    sessionStorage.setItem("SAVED_GRAPH", JSON.stringify(editor.toJSON()));
+    toggleSaveUi();
+  });
+  document.getElementById("loadFromCacheBtn").addEventListener("click", function() {
+    const saveExists = loadSave();
+    if (!saveExists) {
+      alert("No saves exist.\n");
+    }
+  });
+  document.getElementById("clearFromCacheBtn").addEventListener("click", function () {
+    sessionStorage.removeItem("SAVED_GRAPH");
+    toggleSaveUi();
+  });
+  const toggleSaveUi = function() {
+    const isSaved = Boolean(sessionStorage.getItem("SAVED_GRAPH"));
+    document.getElementById("loadOnStartOn").checked = isSaved;
+    document.getElementById("loadOnStartOff").checked = !isSaved;
+  }
 }
 
 window.onload = async function() {

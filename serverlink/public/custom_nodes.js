@@ -1,11 +1,10 @@
 import Rete from "rete";
 import {ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
-import {displayModal} from "./modal";
-import {WebSockFields, WebSockType, WebSockUtils} from "./web_socket_client";
+import {WebSockFields, WebSockType} from "./web_socket_client";
 const actionSocket = new Rete.Socket("Action");
 
 import {v4} from "uuid";
-// const uuid = require("uuid");
+import {ButtonControl, DropdownControl, FileControl, MessageControl} from "./custom_controls";
 const dataSocket = new Rete.Socket("Data");
 actionSocket.combineWith(dataSocket);
 
@@ -56,170 +55,6 @@ function outputHasChildNodes(node, key) {
   return node.outputs[key].connections.length > 0;
 }
 
-class MessageControl extends Rete.Control {
-  constructor(emitter, msg, key) {
-    const thisKey = key || "msg";
-    super(thisKey);
-    this.key = thisKey;
-    this.emitter = emitter;
-    this.template = `<input :value="msg" @input="change($event)" @pointermove.stop=""/>`;
-    this.scope = {
-      msg,
-      change: this.changeHandler.bind(this)
-    };
-  }
-  changeHandler(e) {
-    this.scope.value = e.target.value;
-    this.update();
-  }
-  update() {
-    this.putData(this.key, this.scope.value);
-    this.emitter.trigger('process', {reset:false});
-    this._alight.scan();
-  }
-  mounted() {
-    this.scope.value = this.getData(this.key) || "";
-    this.update();
-  }
-  setValue(val) {
-    this.scope.value = val;
-    this._alight.scan()
-  }
-}
-class ButtonControl extends Rete.Control {
-  constructor(key, display, clickFunc, parentObj) {
-    const thisKey = key || "btn";
-    super(thisKey);
-    this.clickFunc = clickFunc;
-    this.template = `<button class="${display}" @click="onClick($event)">${display}</button>`;
-    this.scope = {
-      onClick : this.clickFunc.bind(parentObj)
-    }
-  }
-}
-class FileControl extends Rete.Control {
-  constructor(emitter, data, key) {
-    const thisKey = key || "file";
-    super(thisKey);
-    this.emitter = emitter;
-    this.key = thisKey;
-    data = data || {};
-    const filename = data[key + "filename"];
-    const file = data[key + "file"];
-    this.template = `
-      <input :value="filename" @dblclick="loadFile($event)" @input="renameFile($event)" @pointermove.stop=""/>
-      <input :value="file" style="display: none"/>
-      <button @click="showFile($event)">Show</button>`;
-    this.scope = {
-      file,
-      filename,
-      loadFile: this.loadHandler.bind(this),
-      showFile: this.showHandler.bind(this),
-      renameFile: this.renameHandler.bind(this)
-    }
-  }
-  update() {
-    this.putData(this.key, "");
-    this.putData(this.key + "filename", this.scope.filename);
-    this.putData(this.key + "file", this.scope.file);
-    this.emitter.trigger('process', {reset:false});
-    this._alight.scan();
-  }
-  showHandler(e) {
-    const jsDisplay = document.createElement("textarea");
-    jsDisplay.value = this.getData(this.key + "file")
-    jsDisplay.onchange = (() => {
-      this.scope.file = jsDisplay.value;
-      this.update();
-    }).bind(this);
-    displayModal(jsDisplay);
-  }
-  loadHandler(e) {
-    const elem = window.document.createElement('input');
-    elem.type = "file";
-    const parent = this;
-    elem.onchange = e => {
-      const file = e.target.files[0];
-      if (file) {
-        //setting filename input thru code will not trigger renameHandler
-        parent.scope.filename = file.name;
-        const reader = new FileReader();
-        reader.readAsText(file, "UTF-8");
-        reader.onload = async evt => {
-          parent.scope.file = evt.target.result;
-          parent.update();
-        };
-      }
-    };
-    document.body.appendChild(elem);
-    elem.click();
-    document.body.removeChild(elem);
-  }
-  renameHandler(e) {
-    this.scope.filename = e.target.value;
-    this.update();
-  }
-  mounted() {
-    this.scope.file = this.getData(this.key + "file") || "";
-    this.scope.filename = this.getData(this.key + "filename") || "";
-    this.update();
-  }
-}
-
-class RadioControl extends Rete.Control {
-  constructor(key, group, isChecked, selected) {
-    super(key);
-    this.initChecked = key === selected || isChecked;
-    this.template =`${key}<input type="radio" :checked=${this.initChecked} name="${group}" value="${key}" @change="onChange($event)"/>`;
-    this.scope = {
-      onChange: this.changeHandler.bind(this),
-    }
-  }
-  update(isChecked) {
-    if (isChecked)
-      this.putData("selected", this.key);
-    this._alight.scan();
-  }
-  changeHandler(e) {
-    this.update(e.target.checked);
-  }
-  mounted() {
-    this.update(this.initChecked);
-  }
-}
-class DropdownControl extends Rete.Control {
-  constructor(emitter, key, selected, configType) {
-    super(key);
-    this.emitter = emitter;
-    this.template =`<select :value="selected" @change="onChange($event)" @pointermove.stop="">`;
-    this.scope = {
-      selected,
-      onChange: this.changeHandler.bind(this),
-      optionClicked: this.optionClickHandler.bind(this),
-    };
-    if (isMainpane(emitter) && configType === "endpoint") {
-      endpointNames.forEach(name => {
-        this.template += `<option value="${name}" ${name === selected ? "selected":""} @click="optionClicked($event)">${name}</option>`
-      });
-      this.template += `</select>`
-    }
-  }
-  changeHandler(e) {
-    this.scope.selected = e.target.value;
-    this.update();
-  }
-  optionClickHandler(e) {
-    this.emitter.trigger("click");//click background, workaround for node staying selected after option clicked
-  }
-  mounted() {
-    this.scope.selected = this.getData(this.key) || "";
-    this.update();
-  }
-  update() {
-    this.putData(this.key, this.scope.selected);
-    this._alight.scan();
-  }
-}
 function runCustomCode(funcStr, inputData) {
 //funcStr can be null, new Function still runs
   const func = new Function("$INPUT", funcStr);
@@ -230,7 +65,7 @@ function runCustomCode(funcStr, inputData) {
   }
   return outputData;
 }
-export class CustomJsComponent extends Rete.Component {
+export class CustomJsNode extends Rete.Component {
   constructor(){
     super("CustomJs");
     this.task = {
@@ -251,7 +86,7 @@ export class CustomJsComponent extends Rete.Component {
     cacheChainingValue(node, outputData);
   }
 }
-export class KeydownComponent extends Rete.Component {
+export class KeydownNode extends Rete.Component {
 
   constructor(){
     super("Keydown Listener");
@@ -279,7 +114,7 @@ export class KeydownComponent extends Rete.Component {
   }
 }
 
-export class MessageSenderComponent extends Rete.Component {
+export class MessageSenderNode extends Rete.Component {
 
   constructor(){
     super("Message Sender");
@@ -310,7 +145,7 @@ export class MessageSenderComponent extends Rete.Component {
     }
   }
 }
-export class RelayComponent extends Rete.Component {
+export class RelayNode extends Rete.Component {
   constructor(){
     super("Relay");
     this.task = {
@@ -336,9 +171,6 @@ function cacheChainingValue(node, val) {
     chainingData[node.id] = popParentNodeCache(node);
   }
 }
-function popCurrentNodeCache(node) {
-  return chainingData[node.id];
-}
 //call this in every chainable or potential leaf node
 function popParentNodeCache(node) {
   //node saves child node id in "node" field, not id field
@@ -362,7 +194,7 @@ function popParentNodeCache(node) {
   return cacheData;
 }
 
-export class ConditionalComponent extends Rete.Component {
+export class ConditionalNode extends Rete.Component {
 
   constructor(){
     super("Conditional");
@@ -459,7 +291,7 @@ export class ConditionalComponent extends Rete.Component {
   }
 }
 
-export class LogComponent extends Rete.Component {
+export class LogNode extends Rete.Component {
 
   constructor() {
     super("Log");
@@ -479,7 +311,7 @@ export class LogComponent extends Rete.Component {
   }
 }
 
-export class OutputComponent extends Rete.Component {
+export class OutputNode extends Rete.Component {
   constructor() {
     super("Output");
     const parent = this;
@@ -557,7 +389,7 @@ function sendHttpReq(socket, req, data) {
   socket.send(JSON.stringify(req));
 }
 
-export class InputComponent extends Rete.Component {
+export class InputNode extends Rete.Component {
   constructor() {
     super("Input");
     const parent = this;
@@ -597,7 +429,7 @@ export class InputComponent extends Rete.Component {
   }
 }
 
-export class SpreaderComponent extends Rete.Component {
+export class SpreaderNode extends Rete.Component {
 
   constructor(){
     super("Spreader");

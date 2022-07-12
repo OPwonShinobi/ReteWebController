@@ -1,6 +1,7 @@
 {
   "server_port": 8080,
   "ws_port": 8081,
+  "graph_version": "serverlink@1.0.0",
   "endpoints" : {
     "example": {
       "dest": "<scheme>://<authority><path>?<query>#<fragment>",

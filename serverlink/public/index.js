@@ -10,25 +10,23 @@ import "./style.css";
 import Favicon from "./favicon.png";
 import {
   clearListeners,
-  ConditionalComponent,
-  KeydownComponent,
-  LogComponent,
-  MessageSenderComponent,
-  RelayComponent,
-  SpreaderComponent,
-  CustomJsComponent,
-  OutputComponent,
-  InputComponent
+  ConditionalNode,
+  KeydownNode,
+  LogNode,
+  MessageSenderNode,
+  RelayNode,
+  SpreaderNode,
+  CustomJsNode,
+  OutputNode,
+  InputNode
 } from "./custom_nodes"
 import {displayModal} from "./modal";
 
 document.getElementById("favicon").href = Favicon;
 
-const VERSION = "serverlink@1.0.0";
-
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new LogComponent(), new ConditionalComponent(), new SpreaderComponent(), new InputComponent(), new OutputComponent(), new CustomJsComponent(), new KeydownComponent(), new MessageSenderComponent(), new RelayComponent()];
+  return [new LogNode(), new ConditionalNode(), new SpreaderNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new MessageSenderNode(), new RelayNode()];
 }
 
 function setPlugins(editor) {
@@ -51,14 +49,17 @@ function setPlugins(editor) {
   editor.use(TaskPlugin);
 }
 
+
 async function loadMainpane() {
+  const version = await fetch("/config?type=setting&name=graph_version")
+  .then(rsp => rsp.json());
+
   const container = document.querySelector("#rete");
-  const components = getComponents()
-  const editor = new Rete.NodeEditor(VERSION, container);
+  const editor = new Rete.NodeEditor(version, container);
   setPlugins(editor);
-  const engine = new Rete.Engine(VERSION);
+  const engine = new Rete.Engine(version);
   //need to register all comps to editor + engine
-  components.map(c => {
+  getComponents().map(c => {
     editor.register(c);
     engine.register(c);
   });

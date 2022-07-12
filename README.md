@@ -18,7 +18,5 @@ Run ```mvn install``` to create standalone jar "serverlink-1.0-SNAPSHOT-shaded.j
 		npm run buildDev
 		npm run buildProd
 	Debug:
-		(without server running, for dev use only. Many functions won't work.)
-		npm run headless
 		(with server running, refresh page to apply changes)
 		npm run devServer

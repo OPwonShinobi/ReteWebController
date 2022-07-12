@@ -37,7 +37,6 @@ const eventListeners = {
     });
     this.list = [];
     this.keys.clear();
-    wsSocketCache.clear();
   },
   add(id, name, handler) {
     if (this.keys.has(id)) {
@@ -514,6 +513,7 @@ export class OutputComponent extends Rete.Component {
       //2nd run, worker called by websock
       if (outputHasChildNodes(node, "dat")) {
         cacheChainingValue(node, data);
+        this.closed = []; //now allow propagation
       }
     } else {
       //1st run, worker called by parent node

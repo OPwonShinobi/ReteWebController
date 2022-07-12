@@ -81,9 +81,9 @@ async function loadMainpane() {
   });
   editor.trigger("process", {reset:true});
   loadHandlers(editor);
-  loadSave();
+  loadSave(editor);
 }
-function loadSave() {
+function loadSave(editor) {
   const savedGraphJson = sessionStorage.getItem("SAVED_GRAPH");
   if (savedGraphJson) {
     //no need for error checking, only way to add save is through valid existing graph
@@ -128,7 +128,7 @@ function handleImport(editor) {
   document.body.removeChild(elem);
 }
 function handleExport(editor) {
-  const filename = prompt("Filename");
+  const filename = prompt("Filename","graph.json");
   if (!filename){
     return;
   }
@@ -173,11 +173,16 @@ function handleSettings(editor) {
   );
   document.getElementById("modalForm").onsubmit = () => {return false};
   document.getElementById("saveToCacheBtn").addEventListener("click", function () {
-    sessionStorage.setItem("SAVED_GRAPH", JSON.stringify(editor.toJSON()));
-    toggleSaveUi();
+    const graphJson = editor.toJSON();
+    if (Object.keys(graphJson.nodes).length) {//verify if empty graph
+      sessionStorage.setItem("SAVED_GRAPH", JSON.stringify(graphJson));
+      toggleSaveUi();
+    } else {
+      alert("Graph empty!")
+    }
   });
   document.getElementById("loadFromCacheBtn").addEventListener("click", function() {
-    const saveExists = loadSave();
+    const saveExists = loadSave(editor);
     if (!saveExists) {
       alert("No saves exist.\n");
     }

@@ -66,12 +66,13 @@ public class SimpleWebSocketServer extends WebSocketServer {
     JSONObject endPoint = configHandler.getEndPoint(endPointName);
 
     String dst = endPoint.getString("dest");
-    String method = endPoint.getString("method");
-    JSONObject headers = endPoint.getJSONObject("headers");
+    String method = endPoint.getString("method").toUpperCase();
+    JSONObject headers = endPoint.has("headers")? endPoint.getJSONObject("headers") : new JSONObject();
     try {
       URL url = new URL(dst);
       HttpURLConnection conn = (HttpURLConnection) url.openConnection();
       conn.setRequestMethod(method);
+      conn.setDoOutput(true);
       for (String field : headers.keySet()) {
         conn.setRequestProperty(field, headers.getString(field));
       }
@@ -93,7 +94,7 @@ public class SimpleWebSocketServer extends WebSocketServer {
       return response.toString();
     } catch (IOException e) {
       e.printStackTrace();
-      return null;
+      return e.getMessage();
     }
   }
 

@@ -27,6 +27,7 @@ fetch("/config?type=endpoint")
   console.error("Error fetching node endpoints:" + err);
 });
 
+const wsSocketCache = new Map();
 const eventListeners = {
   list: [],
   keys: new Set(),
@@ -36,6 +37,7 @@ const eventListeners = {
     });
     this.list = [];
     this.keys.clear();
+    wsSocketCache.clear();
   },
   add(id, name, handler) {
     if (this.keys.has(id)) {
@@ -187,33 +189,35 @@ class RadioControl extends Rete.Control {
   }
 }
 class DropdownControl extends Rete.Control {
-  constructor(emitter, key, value, configType) {
+  constructor(emitter, key, selected, configType) {
     super(key);
     this.emitter = emitter;
-    this.template =`<select :value="value" @change="onChange($event)" @pointermove.stop="">`;
+    this.template =`<select :value="selected" @change="onChange($event)" @pointermove.stop="">`;
     this.scope = {
-      value,
+      selected,
       onChange: this.changeHandler.bind(this),
       optionClicked: this.optionClickHandler.bind(this),
     };
     if (isMainpane(emitter) && configType === "endpoint") {
       endpointNames.forEach(name => {
-        this.template += `<option value="${name}" ${name === value ? "selected":""} @click="optionClicked($event)">${name}</option>`
-      })
+        this.template += `<option value="${name}" ${name === selected ? "selected":""} @click="optionClicked($event)">${name}</option>`
+      });
       this.template += `</select>`
     }
   }
   changeHandler(e) {
-    this.update(e.target.value);
+    this.scope.selected = e.target.value;
+    this.update();
   }
   optionClickHandler(e) {
     this.emitter.trigger("click");//click background, workaround for node staying selected after option clicked
   }
   mounted() {
-    this.update(this.value);
+    this.scope.selected = this.getData(this.key) || "";
+    this.update();
   }
-  update(value) {
-    this.putData("selected", value);
+  update() {
+    this.putData(this.key, this.scope.selected);
     this._alight.scan();
   }
 }
@@ -497,10 +501,10 @@ export class OutputComponent extends Rete.Component {
     this.node = node;
     createWsConnection(this);
     if (this.socket) {
-      cacheChainingValue(node, this.socket); //workaround for worker method needing this.socket
+      wsSocketCache.set(node.id, this.socket); //workaround for worker method needing this.socket
     }
     node
-    .addControl(new DropdownControl(this.editor, "endpoint_picker", node.data["selected"], "endpoint"))
+    .addControl(new DropdownControl(this.editor, "endpoint_picker", node.data["endpoint_picker"], "endpoint"))
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "trigger", actionSocket));
   }
@@ -513,10 +517,11 @@ export class OutputComponent extends Rete.Component {
       }
     } else {
       //1st run, worker called by parent node
-      const cachedSocket = popCurrentNodeCache(node);
+      const cachedSocket = wsSocketCache.get(node.id);
       const cachedData = popParentNodeCache(node);
-      cachedData[WebSockFields.ENDPOINT] = node.data["selected"];
-      sendHttpReq(cachedSocket, cachedData);
+      const req = {};
+      req[WebSockFields.ENDPOINT] = node.data["endpoint_picker"];
+      sendHttpReq(cachedSocket, req, cachedData);
       this.closed = ["dat"]; //prevent propagation until second run
     }
   }
@@ -531,6 +536,7 @@ function createWsConnection(src) {
     }.bind(src);
     src.node.destructor = function() {
       src.socket.close();
+      wsSocketCache.delete(src.node.id);
     };
   }
 }
@@ -545,8 +551,7 @@ function sendRenameReq(src) {
   src.oldName = src.node.data["msg"] || src.oldName;
   src.socket.send(JSON.stringify(req));
 }
-function sendHttpReq(socket, data) {
-  const req = {};
+function sendHttpReq(socket, req, data) {
   req[WebSockFields.TYPE] = WebSockType.HTTP;
   req[WebSockFields.PAYLOAD] = data;
   socket.send(JSON.stringify(req));

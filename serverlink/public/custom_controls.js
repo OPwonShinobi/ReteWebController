@@ -54,9 +54,9 @@ export class ButtonControl extends Rete.Control {
     }
   }
 }
-export class FileControl extends Rete.Control {
+export class TextFileControl extends Rete.Control {
   constructor(emitter, data, key) {
-    const thisKey = key || "file";
+    const thisKey = key || "text";
     super(thisKey);
     this.emitter = emitter;
     this.key = thisKey;
@@ -122,26 +122,96 @@ export class FileControl extends Rete.Control {
     this.update();
   }
 }
-
-export class RadioControl extends Rete.Control {
-  constructor(key, group, isChecked, selected) {
-    super(key);
-    this.initChecked = key === selected || isChecked;
-    this.template =`${key}<input type="radio" :checked=${this.initChecked} name="${group}" value="${key}" @change="onChange($event)"/>`;
+//a modified TextFileControl that saves image/binary files as data urls
+export class DataUrlFileControl extends Rete.Control {
+  constructor(emitter, data, key) {
+    const thisKey = key || "blob";
+    super(thisKey);
+    this.emitter = emitter;
+    this.key = thisKey;
+    data = data || {};
+    const filename = data[key + "filename"];
+    const file = data[key + "file"];
+    this.template = `
+      <input :value="filename" @dblclick="loadFile($event)" @input="renameFile($event)" @pointermove.stop=""/>
+      <input :value="file" style="display: none"/>
+      <button @click="downloadFile($event)">Download</button>`;
     this.scope = {
+      file,
+      filename,
+      loadFile: this.loadHandler.bind(this),
+      downloadFile: this.downloadHandler.bind(this),
+      renameFile: this.renameHandler.bind(this)
+    }
+  }
+  update() {
+    this.putData(this.key, "");
+    this.putData(this.key + "filename", this.scope.filename);
+    this.putData(this.key + "file", this.scope.file);
+    this.emitter.trigger('process', {reset:false});
+    this._alight.scan();
+  }
+  downloadHandler(e) {
+    //cannot display binary file contents, (and file not guaranteed to be img), so download it instead of showing it
+    const link = document.createElement("a");
+    link.download = this.getData(this.key + "filename");
+    link.href = this.getData(this.key + "file");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+  loadHandler(e) {
+    const elem = window.document.createElement('input');
+    elem.type = "file";
+    const parent = this;
+    elem.onchange = e => {
+      const file = e.target.files[0];
+      if (file) {
+        //setting filename input thru code will not trigger renameHandler
+        parent.scope.filename = file.name;
+        const reader = new FileReader();
+        reader.readAsDataURL(file);//using base64 data url since blob has encoding issues stored as string
+        reader.onload = evt => {
+          parent.scope.file = evt.target.result;
+          parent.update();
+        };
+      }
+    };
+    document.body.appendChild(elem);
+    elem.click();
+    document.body.removeChild(elem);
+  }
+  renameHandler(e) {
+    this.scope.filename = e.target.value;
+    this.update();
+  }
+  mounted() {
+    this.scope.file = this.getData(this.key + "file") || "";
+    this.scope.filename = this.getData(this.key + "filename") || "";
+    this.update();
+  }
+}
+export class RadioControl extends Rete.Control {
+  constructor(key, group, isChecked) {
+    super(key);
+    this.template =`${key}<input type="radio" :checked=${isChecked} name="${group}" value="${key}" @change="onChange($event)"/>`;
+    this.scope = {
+      isChecked,
       onChange: this.changeHandler.bind(this),
     }
   }
-  update(isChecked) {
-    if (isChecked)
+  update() {
+    if (this.scope.isChecked)
       this.putData("selected", this.key);
+    //something else checked it
     this._alight.scan();
   }
   changeHandler(e) {
-    this.update(e.target.checked);
+    this.scope.isChecked = e.target.checked;
+    this.update();
   }
   mounted() {
-    this.update(this.initChecked);
+    this.update();
   }
 }
 export function isMainpane(editor) {

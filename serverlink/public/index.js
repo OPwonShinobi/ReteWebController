@@ -18,7 +18,9 @@ import {
   SpreaderNode,
   CustomJsNode,
   OutputNode,
-  InputNode, CombinerNode
+  InputNode,
+  CombinerNode,
+  FileInputNode
 } from "./custom_nodes"
 import {displayModal} from "./modal";
 
@@ -26,7 +28,7 @@ document.getElementById("favicon").href = Favicon;
 
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new LogNode(), new ConditionalNode(), new SpreaderNode(), new CombinerNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new MessageSenderNode(), new RelayNode()];
+  return [new LogNode(), new ConditionalNode(), new SpreaderNode(), new CombinerNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new MessageSenderNode(), new RelayNode(), new FileInputNode()];
 }
 
 function setPlugins(editor) {
@@ -137,16 +139,17 @@ function handleExport(editor) {
   }
 
   const blob = new Blob([JSON.stringify(editor.toJSON())], {type: 'text/json'});
-  if(window.navigator.msSaveOrOpenBlob) {
-    window.navigator.msSaveBlob(blob, filename);
+  if(navigator.msSaveOrOpenBlob) {
+    navigator.msSaveBlob(blob, filename);
   }
   else{
-    const elem = window.document.createElement('a');
-    elem.href = window.URL.createObjectURL(blob);
+    const elem = document.createElement('a');
+    elem.href = URL.createObjectURL(blob);
     elem.download = filename;
     document.body.appendChild(elem);
     elem.click();
     document.body.removeChild(elem);
+    URL.revokeObjectURL(elem.href);
   }
 }
 

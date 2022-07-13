@@ -4,7 +4,15 @@ import {WebSockFields, WebSockType} from "./web_socket_client";
 const actionSocket = new Rete.Socket("Action");
 
 import {v4} from "uuid";
-import {ButtonControl, DropdownControl, FileControl, isMainpane, MessageControl} from "./custom_controls";
+import {
+  ButtonControl,
+  DropdownControl,
+  TextFileControl,
+  isMainpane,
+  MessageControl,
+  RadioControl,
+  DataUrlFileControl
+} from "./custom_controls";
 const dataSocket = new Rete.Socket("Data");
 actionSocket.combineWith(dataSocket);
 
@@ -61,18 +69,36 @@ export class CustomJsNode extends Rete.Component {
       outputs: {dat:"option"}
     }
   }
-
   builder(node) {
     node
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", dataSocket))
-    .addControl(new FileControl(this.editor, node.data));
+    .addControl(new TextFileControl(this.editor, node.data));
   }
   worker(node) {
     const funcStr = node.data["file"];
     const inputData = popParentNodeCache(node);
     const outputData = runCustomCode(funcStr, inputData)
     cacheChainingValue(node, outputData);
+  }
+}
+export class FileInputNode extends Rete.Component {
+  constructor(){
+    super("File");
+    this.task = {
+      outputs: {dat:"option"}
+    }
+  }
+  builder(node) {
+    node
+    //input only used so MessageSenderNode can trigger it
+    .addInput(new Rete.Input("dat", "data", dataSocket))
+    .addOutput(new Rete.Output("dat", "data", dataSocket))
+    .addControl(new DataUrlFileControl(this.editor, node.data));
+  }
+  worker(node) {
+    //only return file data, disregard caller node's input data
+    cacheChainingValue(node, node.data["file"]);
   }
 }
 export class KeydownNode extends Rete.Component {
@@ -238,7 +264,7 @@ export class ConditionalNode extends Rete.Component {
     try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
   }
   addCond(key){
-    const ctrl = new FileControl(this.editor, this.node["data"][key], key);
+    const ctrl = new TextFileControl(this.editor, this.node["data"][key], key);
     this.node.addControl(ctrl);
     const output = new Rete.Output(key, "else if", dataSocket);
     this.node.addOutput(output)
@@ -255,7 +281,7 @@ export class ConditionalNode extends Rete.Component {
     //due to tech limitation, else must be first
     .addOutput(new Rete.Output("else", "else", dataSocket))
     .addOutput(new Rete.Output(defaultCond, "if", dataSocket))
-    .addControl(new FileControl(this.editor, this.node["data"][defaultCond], defaultCond));
+    .addControl(new TextFileControl(this.editor, this.node["data"][defaultCond], defaultCond));
 
     //extra conditions
     for(const key in this.node["data"]) {

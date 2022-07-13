@@ -78,8 +78,10 @@ export class CustomJsNode extends Rete.Component {
   worker(node) {
     const funcStr = node.data["file"];
     const inputData = popParentNodeCache(node);
-    const outputData = runCustomCode(funcStr, inputData)
-    cacheChainingValue(node, outputData);
+    const outputData = runCustomCode(funcStr, inputData);
+    if (outputHasChildNodes(node, "dat")) {
+      cacheChainingValue(node, outputData);
+    }
   }
 }
 export class FileInputNode extends Rete.Component {
@@ -98,7 +100,9 @@ export class FileInputNode extends Rete.Component {
   }
   worker(node) {
     //only return file data, disregard caller node's input data
-    cacheChainingValue(node, node.data["file"]);
+    if (outputHasChildNodes(node, "dat")) {
+      cacheChainingValue(node, node.data["file"]);
+    }
   }
 }
 export class KeydownNode extends Rete.Component {
@@ -174,31 +178,40 @@ export class RelayNode extends Rete.Component {
     .addOutput(new Rete.Output("dat", "data", dataSocket));
   }
   worker(node) {
-    cacheChainingValue(node);
+    if (outputHasChildNodes(node, "dat")) {
+      cacheChainingValue(node, popParentNodeCache(node));
+    }
   }
 }
 //call this in every chainable node
 //if val given, save it to current cache. else pop it from parent cache
-function cacheChainingValue(node, val) {
-  if (val) {
-    chainingData[node.id] = val;
+function cacheChainingValue(node, val = null, fifo = false) {
+  if (fifo) {
+    if (!chainingData[node.id]) {
+      chainingData[node.id] = {fifo: []};
+    }
+    chainingData[node.id].fifo.push(val);
   } else {
-    chainingData[node.id] = popParentNodeCache(node);
+    chainingData[node.id] = val;
   }
 }
 function popParentNodeCache(node) {
   //node saves child node id in "node" field, not id field
   const parentId = node.inputs["dat"].connections[0].node;
-  const childId = node.id;
-  return popSingleParentCache(parentId, childId);
+  return popSingleParentCache(parentId);
 }
-function popSingleParentCache(parentId, childId) {
+function popSingleParentCache(parentId) {
   let cacheData = null;
   if (chainingData[parentId]) {
-    if (chainingData[parentId].hasCopies) {
-      cacheData = chainingData[parentId][childId];
-      delete chainingData[parentId][childId];
-      if (Object.keys(chainingData[parentId]).length === 1) {//only hasCopies remaining
+    if (chainingData[parentId].childCount) {
+      cacheData = chainingData[parentId].data;
+      chainingData[parentId].childCount--;
+      if (chainingData[parentId].childCount <= 0) {
+        chainingData[parentId] = {};
+      }
+    } else if (chainingData[parentId].fifo) {
+      cacheData = chainingData[parentId].fifo.shift();
+      if (chainingData[parentId].fifo.length <= 0) {
         chainingData[parentId] = {};
       }
     } else {
@@ -212,14 +225,13 @@ function popSingleParentCache(parentId, childId) {
   return cacheData;
 }
 function popMultiParentNodeCache(node) {
-  const childId = node.id;
   let cacheData = null;
   //popParentNodeCache with many potential parents
   for(const key in node.inputs) {
     const inputConns = node.inputs[key].connections;
     if (inputConns.length) {
       const parentId = inputConns[0].node;
-      cacheData = popSingleParentCache(parentId, childId);
+      cacheData = popSingleParentCache(parentId);
       if (cacheData) break;
     }
   }
@@ -294,32 +306,29 @@ export class ConditionalNode extends Rete.Component {
     const data = popParentNodeCache(node);
     //set closed to array of non-selected outputs, these are reversed
     this.closed = [];
-    let matches = 0;
-    const dataToBeCached = {hasCopies: true};
+    const dataToBeCached = {childCount: 0, data: data};
     for (const key in node.outputs) {
       if (key === "else") {continue;}
-      if (node.outputs[key].connections.length === 0) {continue;}
+      if (!outputHasChildNodes(node, key)) {continue;}
       const funcStr = node.data[key + "file"];
       const isMatch = Boolean(runCustomCode(funcStr, data));
       if (isMatch) {
-        matches++;
-        const childId = node.outputs[key].connections[0].node;
-        dataToBeCached[childId] = data;
+        dataToBeCached.childCount++;
       } else {
         this.closed.push(key);
       }
     }
 
-    if (matches > 0) {
+    if (dataToBeCached.childCount > 0) {
       this.closed.push("else");
     } else {
-      const elseClause = node.outputs["else"].connections;
-      if (elseClause.length) {
-        const childId = elseClause[0].node;
-        dataToBeCached[childId] = data;
+      if (outputHasChildNodes(node, "else")) {
+        dataToBeCached.childCount++;
       }
     }
-    cacheChainingValue(node, dataToBeCached);
+    if (dataToBeCached.childCount) {
+      cacheChainingValue(node, dataToBeCached);
+    }
   }
 }
 
@@ -524,15 +533,15 @@ export class SpreaderNode extends Rete.Component {
     const spreadData = popParentNodeCache(node);
     // keep closed empty, do not close any connections: send to all child nodes
     this.closed = [];
-    const dataToSave = {hasCopies: true};
+    const dataToSave = {childCount: 0, data: spreadData};
     for (const key in node.outputs) {
       if (outputHasChildNodes(node, key)) {
-        //childId saved in connection.node field
-        const childId = node.outputs[key].connections[0].node;
-        dataToSave[childId] = spreadData;
+        dataToSave.childCount++;
       }
     }
-    cacheChainingValue(node, dataToSave);
+    if (dataToSave.childCount) {
+      cacheChainingValue(node, dataToSave);
+    }
   }
 }
 
@@ -596,6 +605,9 @@ export class CombinerNode extends Rete.Component {
     }
   }
   worker(node) {
-    cacheChainingValue(node, popMultiParentNodeCache(node));
+    const data = popMultiParentNodeCache(node);
+    if (outputHasChildNodes(node, "dat")) {
+      cacheChainingValue(node, data, true);
+    }
   }
 }

@@ -1,10 +1,10 @@
 import Rete from "rete";
-import {ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
+import {CombinerTemplate, ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
 import {WebSockFields, WebSockType} from "./web_socket_client";
 const actionSocket = new Rete.Socket("Action");
 
 import {v4} from "uuid";
-import {ButtonControl, DropdownControl, FileControl, MessageControl} from "./custom_controls";
+import {ButtonControl, DropdownControl, FileControl, isMainpane, MessageControl} from "./custom_controls";
 const dataSocket = new Rete.Socket("Data");
 actionSocket.combineWith(dataSocket);
 
@@ -14,17 +14,6 @@ fetch("/config?type=setting&name=ws_port")
 .then(port =>
   ws_port = port
 );
-var endpointNames = [];
-fetch("/config?type=endpoint")
-.then(rsp => rsp.json())
-.then(rspData => {
-  if (rspData.length === 0) {
-    alert("No endpoints added! Output nodes unusable.");
-  }
-  endpointNames = rspData;
-}).catch(err => {
-  console.error("Error fetching node endpoints:" + err);
-});
 
 const wsSocketCache = new Map();
 const eventListeners = {
@@ -171,24 +160,41 @@ function cacheChainingValue(node, val) {
     chainingData[node.id] = popParentNodeCache(node);
   }
 }
-//call this in every chainable or potential leaf node
 function popParentNodeCache(node) {
   //node saves child node id in "node" field, not id field
   const parentId = node.inputs["dat"].connections[0].node;
   const childId = node.id;
+  return popSingleParentCache(parentId, childId);
+}
+function popSingleParentCache(parentId, childId) {
   let cacheData = null;
   if (chainingData[parentId]) {
     if (chainingData[parentId].hasCopies) {
       cacheData = chainingData[parentId][childId];
       delete chainingData[parentId][childId];
-    }
-    if (!chainingData[parentId].hasCopies) {
+      if (Object.keys(chainingData[parentId]).length === 1) {//only hasCopies remaining
+        chainingData[parentId] = {};
+      }
+    } else {
       cacheData = chainingData[parentId];
       chainingData[parentId] = {};
     }
-
     if (!Object.keys(chainingData[parentId]).length) {
       delete chainingData[parentId];
+    }
+  }
+  return cacheData;
+}
+function popMultiParentNodeCache(node) {
+  const childId = node.id;
+  let cacheData = null;
+  //popParentNodeCache with many potential parents
+  for(const key in node.inputs) {
+    const inputConns = node.inputs[key].connections;
+    if (inputConns.length) {
+      const parentId = inputConns[0].node;
+      cacheData = popSingleParentCache(parentId, childId);
+      if (cacheData) break;
     }
   }
   return cacheData;
@@ -372,9 +378,6 @@ function createWsConnection(src) {
     };
   }
 }
-function isMainpane(editor) {
-  return editor.components.size > 0;
-}
 function sendRenameReq(src) {
   const req = {};
   req[WebSockFields.TYPE] = WebSockType.RENAME;
@@ -504,5 +507,69 @@ export class SpreaderNode extends Rete.Component {
       }
     }
     cacheChainingValue(node, dataToSave);
+  }
+}
+
+export class CombinerNode extends Rete.Component {
+
+  constructor() {
+    super("Combiner");
+    this.task = {
+      "outputs": {"dat": "option"}
+    };
+    this.data.template = CombinerTemplate;
+  }
+
+  getLastIdx() {
+    const keys = Array.from(this.node.inputs.keys()).sort();
+    return parseInt(keys[keys.length - 1].substring("opt".length));
+  }
+
+  removeHandler() {
+    const idx = this.getLastIdx();
+    if (!idx) {
+      return
+    }
+    const key = "opt" + idx;
+    const input = this.node.inputs.get(key);
+    if (input.hasConnection()) {
+      this.editor.removeConnection(input.connections[0]);
+    }
+    this.node.removeInput(input);
+    delete this.node.data[key];
+    try {
+      this.editor.trigger('nodeselected', {node: this.node});
+    } catch (error) {
+    }
+  }
+
+  addHandler() {
+    const newKey = "opt" + (this.getLastIdx() + 1);
+    this.addIn(newKey);
+    try {
+      this.editor.trigger('nodeselected', {node: this.node});
+    } catch (error) {
+    }
+  }
+
+  addIn(key) {
+    this.node.addInput(new Rete.Input(key, "data", dataSocket))
+    this.node.data[key] = "option";
+  }
+  builder(node) {
+    //need to save node to this context, addOut needs to reference it
+    this.node = node;
+    //default options
+    this.node
+    .addInput(new Rete.Input("opt0", "data", dataSocket))
+    .addControl(new ButtonControl("add", "Add", this.addHandler, this))
+    .addControl(new ButtonControl("delete", "Delete", this.removeHandler, this))
+    .addOutput(new Rete.Output("dat", "data", dataSocket));
+    for (const key in this.node["data"]) {
+      this.addIn(key);
+    }
+  }
+  worker(node) {
+    cacheChainingValue(node, popMultiParentNodeCache(node));
   }
 }

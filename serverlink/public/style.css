@@ -54,8 +54,12 @@ html, body {
 .node.conditional .output_container .control {
   margin-top: -40px;
 }
-/* splitter node styling*/
-.node.spreader .btn_container .control:first-child {
+/* spreader node styling*/
+.node.spreader .control:first-child {
+  float:left;
+}
+/* combiner node styling*/
+.node.combiner .btn_container .control:first-child {
   float:left;
 }
 /* modal popup styling*/

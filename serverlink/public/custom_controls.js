@@ -1,6 +1,18 @@
 import Rete from "rete";
 import {displayModal} from "./modal";
 
+var endpointNames = [];
+fetch("/config?type=endpoint")
+.then(rsp => rsp.json())
+.then(rspData => {
+  if (rspData.length === 0) {
+    alert("No endpoints added! Output nodes unusable.");
+  }
+  endpointNames = rspData;
+}).catch(err => {
+  console.error("Error fetching node endpoints:" + err);
+});
+
 export class MessageControl extends Rete.Control {
   constructor(emitter, msg, key) {
     const thisKey = key || "msg";
@@ -131,6 +143,9 @@ export class RadioControl extends Rete.Control {
   mounted() {
     this.update(this.initChecked);
   }
+}
+export function isMainpane(editor) {
+  return editor.components.size > 0;
 }
 export class DropdownControl extends Rete.Control {
   constructor(emitter, key, selected, configType) {

@@ -18,7 +18,7 @@ import {
   SpreaderNode,
   CustomJsNode,
   OutputNode,
-  InputNode
+  InputNode, CombinerNode
 } from "./custom_nodes"
 import {displayModal} from "./modal";
 
@@ -26,7 +26,7 @@ document.getElementById("favicon").href = Favicon;
 
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new LogNode(), new ConditionalNode(), new SpreaderNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new MessageSenderNode(), new RelayNode()];
+  return [new LogNode(), new ConditionalNode(), new SpreaderNode(), new CombinerNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new MessageSenderNode(), new RelayNode()];
 }
 
 function setPlugins(editor) {
@@ -52,8 +52,10 @@ function setPlugins(editor) {
 
 async function loadMainpane() {
   const version = await fetch("/config?type=setting&name=graph_version")
-  .then(rsp => rsp.json());
-
+  .then(rsp => rsp.text())
+  .then(rspData => {
+    return rspData;
+  });
   const container = document.querySelector("#rete");
   const editor = new Rete.NodeEditor(version, container);
   setPlugins(editor);

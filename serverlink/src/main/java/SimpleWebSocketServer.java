@@ -1,13 +1,16 @@
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
+import java.io.File;
 import java.net.InetSocketAddress;
-import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import kong.unirest.Callback;
+import kong.unirest.HttpRequest;
+import kong.unirest.HttpResponse;
+import kong.unirest.JsonNode;
+import kong.unirest.Unirest;
+import kong.unirest.UnirestException;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -19,6 +22,9 @@ public class SimpleWebSocketServer extends WebSocketServer {
 
   public SimpleWebSocketServer(InetSocketAddress address, ConfigurationHandler configHandler) {
     super(address);
+    //might move this to configs at some point
+    Unirest.primaryInstance().config().connectTimeout(1000);
+    Unirest.primaryInstance().config().socketTimeout(1000);
     System.out.println(String.format("\nStarting websocket server at %s:%d\n", address.getHostName(), address.getPort()));
     this.configHandler = configHandler;
   }
@@ -45,57 +51,75 @@ public class SimpleWebSocketServer extends WebSocketServer {
     System.out.println("received message from "	+ conn.getRemoteSocketAddress() + ": " + message);
     JSONObject jsonObj = new JSONObject(message);
     WebSocketUtils.Type msgType = WebSocketUtils.Type.parse(jsonObj.getString(WebSocketUtils.TYPE));
-    JSONObject rspObj = new JSONObject();
-    rspObj.append(WebSocketUtils.TYPE, msgType);
-
     if (msgType == WebSocketUtils.Type.RENAME) {
       changeConnName(jsonObj, conn);
     }
     else if (msgType == WebSocketUtils.Type.HTTP) {
-      rspObj.put(WebSocketUtils.PAYLOAD, sendHttpRequestWithResponse(jsonObj));
-      conn.send(rspObj.toString());
+      sendJsonHttpRequest(jsonObj, conn);
     }
   }
   private void changeConnName(JSONObject jsonObj, WebSocket conn) {
     connLookup.remove(jsonObj.getString(WebSocketUtils.OLD_NAME));
     connLookup.put(jsonObj.getString(WebSocketUtils.NEW_NAME), conn);
   }
-  private String sendHttpRequestWithResponse(JSONObject jsonObj) {
-    String payload = jsonObj.getString(WebSocketUtils.PAYLOAD);
-    String endPointName = jsonObj.getString(WebSocketUtils.ENDPOINT);
-    JSONObject endPoint = configHandler.getEndPoint(endPointName);
-
-    String dst = endPoint.getString("dest");
-    String method = endPoint.getString("method").toUpperCase();
-    JSONObject headers = endPoint.has("headers")? endPoint.getJSONObject("headers") : new JSONObject();
-    try {
-      URL url = new URL(dst);
-      HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-      conn.setRequestMethod(method);
-      conn.setDoOutput(true);
-      for (String field : headers.keySet()) {
-        conn.setRequestProperty(field, headers.getString(field));
-      }
-
-      //request
-      DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
-      wr.writeBytes(payload);
-      wr.close();
-
-      //response
-      BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-      StringBuilder response = new StringBuilder();
-      String inputLine;
-      while ((inputLine = in.readLine()) != null) {
-        response.append(inputLine);
-        response.append('\r');
-      }
-      in.close();
-      return response.toString();
-    } catch (IOException e) {
-      e.printStackTrace();
-      return e.getMessage();
+  private HttpRequest handleHeaders(HttpRequest req, JSONObject endPoint) {
+    JSONObject headers = endPoint.has("headers") ? endPoint.getJSONObject("headers") : new JSONObject();
+    for (String key : headers.keySet()) {
+      req = req.header(key, headers.getString(key));
     }
+    return req;
+  }
+  private HttpRequest handleRouteParams(HttpRequest req, JSONObject endPoint, JSONObject dataObj) {
+    String dest = endPoint.getString("dest");
+    if (Pattern.compile("\\{\\w+}").matcher(dest).find()) { //if url contains {..}
+      //extract all words in braces, eg localhost/{user}/{order} returns [user, order]
+      Matcher paramExtractor = Pattern.compile("(?<=\\{)\\w+(?=})").matcher("string to search from here");
+      JSONObject payloadJson = dataObj.getJSONObject(WebSocketUtils.PAYLOAD);
+      while (paramExtractor.find()) {
+        String paramName = paramExtractor.group();
+        req = req.routeParam(paramName, payloadJson.getString(paramName));
+      }
+    }
+    return req;
+  }
+  private HttpRequest handleBody(HttpRequest req, JSONObject endPoint, JSONObject dataObj) {
+    return req;
+  }
+  private void sendJsonHttpRequest(JSONObject dataObj, WebSocket conn) {
+    String endPointName = dataObj.getString(WebSocketUtils.ENDPOINT);
+    JSONObject endPoint = configHandler.getEndPoint(endPointName);
+    String dest = endPoint.getString("dest");
+    String method = endPoint.getString("method").toUpperCase();
+
+    HttpRequest req;
+    if (method.equals("POST")) {
+      req = Unirest.post(dest)
+        .header("Accept", "application/json")
+        .field("file", new File("/C:/Users/lrink/AppData/Local/Postman/app-9.22.2/chrome_200_percent.pak"))
+        .field("modelId", "8003944");
+    } else {
+      req = Unirest.get(dest);
+    }
+    req = handleHeaders(req, endPoint);
+    req = handleRouteParams(req, endPoint, dataObj);
+
+
+    req.asJsonAsync(new Callback<JsonNode>() {
+      @Override
+      public void failed(UnirestException e) {
+        this.send(e.getMessage());
+      }
+      @Override
+      public void completed(HttpResponse<JsonNode> rsp) {
+        this.send(rsp.getBody().toString());
+      }
+      private void send(String msg) {
+        JSONObject rspObj = new JSONObject();
+        rspObj.put(WebSocketUtils.TYPE, WebSocketUtils.Type.HTTP);
+        rspObj.put(WebSocketUtils.PAYLOAD, msg);
+        conn.send(rspObj.toString());
+      }
+    });
   }
 
   @Override

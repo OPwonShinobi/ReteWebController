@@ -73,10 +73,10 @@ export class CustomJsNode extends Rete.Component {
     node
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", dataSocket))
-    .addControl(new TextFileControl(this.editor, node.data));
+    .addControl(new TextFileControl(this.editor, node.data, "text"));
   }
   worker(node) {
-    const funcStr = node.data["file"];
+    const funcStr = node.data["textfile"];
     const inputData = popParentNodeCache(node);
     const outputData = runCustomCode(funcStr, inputData);
     if (outputHasChildNodes(node, "dat")) {
@@ -348,7 +348,7 @@ export class LogNode extends Rete.Component {
 
   worker(node) {
     let data = popParentNodeCache(node);
-    console.log(`Logger id: ${node.id}, msg: ${node.data["msg"]}, data: ${JSON.stringify(data)}`);
+    console.log(`Logger id: ${node.id}, msg: ${node.data["msg"]}, data:`, data);
   }
 }
 

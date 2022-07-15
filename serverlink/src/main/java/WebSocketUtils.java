@@ -9,8 +9,9 @@ public class WebSocketUtils {
   public static final String OLD_NAME = "OLD_NAME";
   public static final String PAYLOAD = "PAYLOAD";
   public static final String ENDPOINT = "ENDPOINT";
-  public static final String DEST = "DEST";
+  public static final String URL = "url";
   public static final String METHOD = "METHOD";
+  public static final String $PAYLOAD = "$PAYLOAD";
 
   public enum Type {
     BROADCAST("BROADCAST"),

@@ -7,7 +7,36 @@
       "dest": "<scheme>://<authority><path>?<query>#<fragment>",
       "method": "GET",
       "headers": {
-        "content-type": "application/json"
+        "Accept": "application/json"
+      },
+      "body": {
+        "type": "raw/form-data",
+        "fields": []
+      }
+    },
+    "get_models": {
+      "dest": "http://192.168.1.233:8001/models",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+    "get templates": {
+      "dest": "http://192.168.1.234:8001/template?from={from}&to={to}",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+    "加data": {
+      "dest": "http://192.168.1.233:8001/models",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": {
+        "type": "form-data",
+        "field": ""
       }
     }
   }

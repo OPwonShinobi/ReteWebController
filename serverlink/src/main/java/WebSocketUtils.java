@@ -4,34 +4,34 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class WebSocketUtils {
-  public static final String TYPE = "TYPE";
-  public static final String NEW_NAME = "NEW_NAME";
-  public static final String OLD_NAME = "OLD_NAME";
-  public static final String PAYLOAD = "PAYLOAD";
-  public static final String ENDPOINT = "ENDPOINT";
-  public static final String URL = "url";
-  public static final String METHOD = "METHOD";
-  public static final String $PAYLOAD = "$PAYLOAD";
+  public static final String TYPE = "type";
+  public static final String NAME = "name";
+
+  public static final String PAYLOAD = "payload";
+  public static final String ENDPOINT = "endpoint";
+  public static final String DEST = "dest";
+  public static final String METHOD = "method";
+  public static final String POST = "post";
 
   public enum Type {
-    BROADCAST("BROADCAST"),
-    HTTP("HTTP"),
-    INVALID("ERR"),
-    RENAME("RENAME");
-    private String name;
-    Type(String name) {
-      this.name = name;
+    BROADCAST("broadcast"),
+    HTTP("http"),
+    QUEUE("queue"),
+    INVALID("invalid");
+    private String value;
+    Type(String value) {
+      this.value = value;
     }
-    private static Map<String, Type> nameMap = Arrays
+    private static Map<String, Type> valueMap = Arrays
         .stream(Type.values())
-        .collect(Collectors.toMap(Type::name, Function.identity()));
+        .collect(Collectors.toMap(Type::toString, Function.identity()));
 
     public static Type parse(String value) {
-      return nameMap.getOrDefault(value, INVALID);
+      return valueMap.getOrDefault(value, INVALID);
     }
     @Override
     public String toString() {
-      return this.name;
+      return this.value;
     }
   }
 }

@@ -26,21 +26,16 @@ export class MessageControl extends Rete.Control {
     };
   }
   changeHandler(e) {
-    this.scope.value = e.target.value;
+    this.scope.msg = e.target.value;
     this.update();
   }
   update() {
-    this.putData(this.key, this.scope.value);
+    this.putData(this.key, this.scope.msg);
     this.emitter.trigger('process', {reset:false});
     this._alight.scan();
   }
   mounted() {
-    this.scope.value = this.getData(this.key) || "";
     this.update();
-  }
-  setValue(val) {
-    this.scope.value = val;
-    this._alight.scan()
   }
 }
 export class ButtonControl extends Rete.Control {
@@ -117,8 +112,6 @@ export class TextFileControl extends Rete.Control {
     this.update();
   }
   mounted() {
-    this.scope.file = this.getData(this.key + "file") || "";
-    this.scope.filename = this.getData(this.key + "filename") || "";
     this.update();
   }
 }
@@ -186,8 +179,6 @@ export class DataUrlFileControl extends Rete.Control {
     this.update();
   }
   mounted() {
-    this.scope.file = this.getData(this.key + "file") || "";
-    this.scope.filename = this.getData(this.key + "filename") || "";
     this.update();
   }
 }
@@ -242,7 +233,6 @@ export class DropdownControl extends Rete.Control {
     this.emitter.trigger("click");//click background, workaround for node staying selected after option clicked
   }
   mounted() {
-    this.scope.selected = this.getData(this.key) || "";
     this.update();
   }
   update() {

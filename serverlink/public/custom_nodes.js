@@ -16,13 +16,13 @@ import {
 const dataSocket = new Rete.Socket("Data");
 actionSocket.combineWith(dataSocket);
 
-var ws_port = 0;
+var WEB_SOCK_PORT = 0;
 fetch("/config?type=setting&name=ws_port")
 .then(rsp => rsp.json())
 .then(port =>
-  ws_port = port
+  WEB_SOCK_PORT = port
 );
-
+//client side only ws socket cache. Sockets are untracked on server side
 const wsSocketCache = new Map();
 const eventListeners = {
   list: [],
@@ -207,18 +207,15 @@ function popSingleParentCache(parentId) {
       cacheData = chainingData[parentId].data;
       chainingData[parentId].childCount--;
       if (chainingData[parentId].childCount <= 0) {
-        chainingData[parentId] = {};
+        delete chainingData[parentId];
       }
     } else if (chainingData[parentId].fifo) {
       cacheData = chainingData[parentId].fifo.shift();
       if (chainingData[parentId].fifo.length <= 0) {
-        chainingData[parentId] = {};
+        delete chainingData[parentId];
       }
     } else {
-      cacheData = chainingData[parentId];
-      chainingData[parentId] = {};
-    }
-    if (!Object.keys(chainingData[parentId]).length) {
+      cacheData = chainingData[parentId];//copy
       delete chainingData[parentId];
     }
   }
@@ -359,9 +356,9 @@ export class OutputNode extends Rete.Component {
     this.task = {
       outputs: {"dat":"option"},
       init(task) {
-        parent.socket.onmessage = function (event) {
+        parent.wsSocket.onmessage = function (event) {
           const rsp = JSON.parse(event.data);
-          if (["RENAME", "BROADCAST"].includes(rsp["TYPE"]))
+          if (rsp[document.WebSockFields.TYPE] === document.WebSockType.BROADCAST)//ignore messages intended for input nodes
             return;
           task.run(event.data, parent);
           task.reset();
@@ -371,9 +368,9 @@ export class OutputNode extends Rete.Component {
   }
   builder(node) {
     this.node = node;
-    createWsConnection(this);
-    if (this.socket) {
-      wsSocketCache.set(node.id, this.socket); //workaround for worker method needing this.socket
+    this.wsSocket = createWsConnection(this);
+    if (this.wsSocket) {
+      wsSocketCache.set(node.id, this.wsSocket); //workaround for worker method needing this.wsSocket
     }
     node
     .addControl(new DropdownControl(this.editor, "endpoint_picker", node.data["endpoint_picker"], "endpoint"))
@@ -402,24 +399,11 @@ export class OutputNode extends Rete.Component {
 function createWsConnection(src) {
   //is main pane and not side bar editor
   if (isMainpane(src.editor)) {
-    src.socket = new WebSocket('ws://localhost:' + ws_port);
-    src.oldName = src.node.data["msg"] || v4(); //default to random uuid for new nodes
-    src.socket.onopen = function () { //slight inconsistent delay before socket open
-      sendRenameReq(src);
-    }.bind(src);
     src.node.destructor = function() {
-      src.socket.close(3000, src.oldName);
       wsSocketCache.delete(src.node.id);
     };
+    return new WebSocket('ws://localhost:' + WEB_SOCK_PORT);
   }
-}
-function sendRenameReq(src) {
-  const req = {};
-  req[WebSockFields.TYPE] = WebSockType.RENAME;
-  req[WebSockFields.OLD_NAME] = src.oldName;
-  req[WebSockFields.NEW_NAME] = src.node.data["msg"] || src.oldName;
-  src.oldName = src.node.data["msg"] || src.oldName;
-  src.socket.send(JSON.stringify(req));
 }
 function sendHttpReq(socket, req, data) {
   req[WebSockFields.TYPE] = WebSockType.HTTP;
@@ -430,16 +414,17 @@ function sendHttpReq(socket, req, data) {
 export class InputNode extends Rete.Component {
   constructor() {
     super("Input");
-    const parent = this;
+    const src = this;
     this.task = {
       outputs: {"dat": "option"},
       init(task) {
-        parent.socket.onmessage = function (event) {
+        src.wsSocket.onmessage = function (event) {
           const rsp = JSON.parse(event.data);
-          if (rsp["TYPE"] === "RENAME")
-              return;
-          task.run(event.data);
-          task.reset();
+          if (rsp[document.WebSockFields.TYPE] === document.WebSockType.BROADCAST
+            && rsp[document.WebSockFields.NAME] === src.node.data["msg"]) {
+            task.run(rsp[document.WebSockFields.PAYLOAD]);
+            task.reset();
+          }
         };
       }
     }
@@ -447,18 +432,10 @@ export class InputNode extends Rete.Component {
 
   builder(node) {
     this.node = node;
-    createWsConnection(this);
+    this.wsSocket = createWsConnection(this);
     node
-    .addControl(new MessageControl(this.editor, node.data["msg"]))
-    .addControl(new ButtonControl("SetConnName","Save", this.setConnName, this))
+    .addControl(new MessageControl(this.editor, isMainpane(this.editor) ? (node.data["msg"] || v4()) : ""))
     .addOutput(new Rete.Output("dat", "trigger", actionSocket));
-  }
-  setConnName() {
-    if (!this.node.data["msg"]) {
-      alert("Saved connection name cannot be empty");
-      return;
-    }
-    sendRenameReq(this);
   }
   worker(node, inputs, data) {
     if (outputHasChildNodes(node, "dat")) {

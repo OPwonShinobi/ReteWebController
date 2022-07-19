@@ -21,7 +21,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class SimpleWebSocketServer extends WebSocketServer {
-  private Map<String, WebSocket> connLookup = new HashMap<>();
   private ConfigurationHandler configHandler;
 
   public SimpleWebSocketServer(InetSocketAddress address, ConfigurationHandler configHandler) {
@@ -33,39 +32,30 @@ public class SimpleWebSocketServer extends WebSocketServer {
     this.configHandler = configHandler;
   }
 
-  public void broadcastByConnName(JSONObject req, String name) {
-    if (!connLookup.containsKey(name)) {
-      throw new RuntimeException("Named connection not found: " + name);
-    }
-    connLookup.get(name).send(req.toString());
+  @Override
+  public void onError(WebSocket conn, Exception ex) {
+    System.err.println("an error occurred on connection " + conn.getRemoteSocketAddress()  + ":" + ex);
   }
-
+  @Override
+  public void onStart() {
+    System.out.println("Websocket server is up");
+  }
   @Override
   public void onOpen(WebSocket conn, ClientHandshake handshake) {
     System.out.println("new connection to " + conn.getRemoteSocketAddress());
   }
-
   @Override
   public void onClose(WebSocket conn, int code, String reason, boolean remote) {
     System.out.println(String.format("Conn closed %s. Exit code %d. More info [%s]", conn.getRemoteSocketAddress(), code, reason));
-    connLookup.remove(reason);//try to remove regardless if named connection
   }
 
   @Override
   public void onMessage(WebSocket conn, String message) {
     System.out.println("received message from "	+ conn.getRemoteSocketAddress() + ": " + message);
     JSONObject jsonObj = new JSONObject(message);
+    //ignore, currently only HTTP messages in use
     WebSocketUtils.Type msgType = WebSocketUtils.Type.parse(jsonObj.getString(WebSocketUtils.TYPE));
-    if (msgType == WebSocketUtils.Type.RENAME) {
-      changeConnName(jsonObj, conn);
-    }
-    else if (msgType == WebSocketUtils.Type.HTTP) {
-      sendJsonHttpRequest(jsonObj, conn);
-    }
-  }
-  private void changeConnName(JSONObject jsonObj, WebSocket conn) {
-    connLookup.remove(jsonObj.getString(WebSocketUtils.OLD_NAME));
-    connLookup.put(jsonObj.getString(WebSocketUtils.NEW_NAME), conn);
+    sendJsonHttpRequest(jsonObj, conn);
   }
   private HttpRequest handleHeaders(HttpRequest req, JSONObject endPoint) {
     JSONObject headers = endPoint.has("headers") ? endPoint.getJSONObject("headers") : new JSONObject();
@@ -146,11 +136,11 @@ public class SimpleWebSocketServer extends WebSocketServer {
     //for now, specify selected endpoint in data from front end
     JSONObject endPoint = configHandler.getEndPoint(dataObj.getString(WebSocketUtils.ENDPOINT));
 
-    String dest = endPoint.getString("dest");
-    String method = endPoint.getString("method").toUpperCase();
+    String dest = endPoint.getString(WebSocketUtils.DEST);
+    String method = endPoint.getString(WebSocketUtils.METHOD).toLowerCase();
 
     HttpRequest req;
-    if (method.equals("POST")) {
+    if (method.equals(WebSocketUtils.POST)) {
       req = Unirest.post(dest);
       req = handleBody(req, endPoint, dataObj);//only post has body
     } else {
@@ -162,28 +152,18 @@ public class SimpleWebSocketServer extends WebSocketServer {
     req.asJsonAsync(new Callback<JsonNode>() {
       @Override
       public void failed(UnirestException e) {
-        this.send(e.getMessage());
+        this.sendToWebSock(e.getMessage());
       }
       @Override
       public void completed(HttpResponse<JsonNode> rsp) {
-        this.send(rsp.getBody().toString());
+        this.sendToWebSock(rsp.getBody().toString());
       }
-      private void send(String msg) {
+      private void sendToWebSock(String msg) {
         JSONObject rspObj = new JSONObject();
-        rspObj.put(WebSocketUtils.TYPE, WebSocketUtils.Type.HTTP);
+        rspObj.put(WebSocketUtils.TYPE, WebSocketUtils.Type.HTTP.toString());
         rspObj.put(WebSocketUtils.PAYLOAD, msg);
         conn.send(rspObj.toString());
       }
     });
-  }
-
-  @Override
-  public void onError(WebSocket conn, Exception ex) {
-    System.err.println("an error occurred on connection " + conn.getRemoteSocketAddress()  + ":" + ex);
-  }
-
-  @Override
-  public void onStart() {
-    System.out.println("Websocket server is up");
   }
 }

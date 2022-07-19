@@ -21,7 +21,7 @@ public class App extends RouterNanoHTTPD {
     super(port);
     addMappings();
     start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
-    System.out.println(String.format("\nRunning! Point your browsers to http://localhost:%d/ \n", port));
+    System.out.println(String.format("\nRete server running on http://localhost:%d/. Send calls here. \n", port));
   }
 
   public static void main(String[] args) throws IOException {
@@ -31,8 +31,7 @@ public class App extends RouterNanoHTTPD {
     WebSocketServer server = new SimpleWebSocketServer(wsSocketAddr, configHandler);
     PublicNodeEndPoint.setWsServer(server);
     ConfigEndPoint.setConfigHandler(configHandler);
-
-    server.run();
+    server.run();//blocking call
   }
 
 }

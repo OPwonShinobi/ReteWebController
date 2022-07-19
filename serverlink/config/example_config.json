@@ -1,0 +1,70 @@
+{
+  "server_port": 8080,
+  "ws_port": 8081,
+  "graph_version": "serverlink@1.0.0",
+  "endpoints" : {
+    "simple_get_example": {
+      "dest": "http://localhost:8080/endpoint",
+      "method": "get",//case insensitive
+      "headers": {
+        "Accept": "application/json"
+      } 
+      //method==get does not need a body
+    },
+
+    "simple_post_example": {
+      "dest": "http://localhost:8080/endpoint",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+
+    //route params can be used by get or post
+    "route_params_example": {
+      "dest": "http://localhost:8080/endpoint/{param1}/{param2}", //specifying any params in {} is enough, server will fetch these fields from payload (must be same name)
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+
+    //query params can be used by get or post
+    "query_params_example": {
+      "dest": "http://localhost:8080/endpoint", //this gets turned into http://localhost:8080/endpoint?param1=XXX&param2=YYY
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries":["param1","param2"] //omitted from final url if fields null in payload. Fields retrieved from payload
+    },
+
+    "post_form_example": {
+      "dest": "http://localhost:8080/endpoint",
+      "method": "post",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": { //body must have type, where type is "form-data" or "raw"
+        "type": "form-data", //type==form-data must have fields. Fields retrieved from payload
+        "fields": [
+          {"name":"cust_fld1"}, //missing type defaults to "text"
+          {"name":"cust_fld2","type":"text"},
+          {"name":"cust_fld3","type":"file"}
+        ]
+      }
+    },
+    
+    "post_raw_example": {
+      "dest": "http://localhost:8080/endpoint",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "raw" //type==raw. Payload directly retrieved as body
+      }
+    }
+
+  }
+}

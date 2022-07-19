@@ -408,7 +408,7 @@ function createWsConnection(src) {
       sendRenameReq(src);
     }.bind(src);
     src.node.destructor = function() {
-      src.socket.close();
+      src.socket.close(3000, src.oldName);
       wsSocketCache.delete(src.node.id);
     };
   }

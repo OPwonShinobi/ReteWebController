@@ -3,41 +3,253 @@
   "ws_port": 8081,
   "graph_version": "serverlink@1.0.0",
   "endpoints" : {
-    "example": {
-      "dest": "<scheme>://<authority><path>?<query>#<fragment>",
-      "method": "GET",
-      "headers": {
-        "Accept": "application/json"
-      },
-      "body": {
-        "type": "raw/form-data",
-        "fields": []
-      }
-    },
-    "get_models": {
-      "dest": "http://192.168.1.233:8001/models",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      }
-    },
-    "get templates": {
-      "dest": "http://192.168.1.234:8001/template?from={from}&to={to}",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      }
-    },
-    "加data": {
-      "dest": "http://192.168.1.233:8001/models",
+    
+    "get_datasets": {
+      "dest": "http://192.168.1.234:8001/",
       "method": "get",
       "headers": {
         "Accept": "application/json"
       },
-      "body": {
-        "type": "form-data",
-        "field": ""
+      "queries":["from","to","datumId","projectId","name"]
+    },
+    "create_dataset_from_labels":{
+      "dest":"http://192.168.1.234:8001/dataset",
+      "method":"post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body":{"type":"raw"}
+    },
+    "create_dataset_from_labels_and_data":{
+      "dest":"http://192.168.1.234:8001/dataset/upload",
+      "method":"post",
+      "headers": {
+        "Content-Type": "multipart/form-data"
+      },
+      "body":{
+        "type":"form-data",
+        "fields":[
+          {"name":"name"},
+          {"name":"projectId"},
+          {"name":"label"},
+          {"name":"data"}
+        ]
       }
+    },
+    "get_dataset_by_id": {
+      "dest": "http://192.168.1.234:8001/dataset/{datasetId}",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+
+    "get training models":{
+      "dest":"http://192.168.1.234:8001/label/session/image",
+      "method": "get",
+      "headers":{
+        "Accept": "application/json"
+      },
+      "queries":["projectId"]
+    },
+    "upload label data during a labeling session":{
+      "dest": "http://192.168.1.234:8001/label/session/image",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body":{"type":"raw"}
+    },
+    
+    "create_label_session_from_proj_id": {
+      "dest": "http://192.168.1.234:8001/label/session/create",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {"type": "raw"}
+    },
+    "persist_label_session_from_proj_id": {
+      "dest": "http://192.168.1.234:8001/label/session/persist",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {"type": "raw"}
+    },
+    "get_label_session_status": {
+      "dest": "http://192.168.1.234:8001/label/session/status",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries":["projectId"]
+    },
+    
+    "get_training_labels": {
+      "dest": "http://192.168.1.234:8001/label",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries":["from","to","datumId","projectId","datasetId"]
+    },
+    "add_label": {
+      "dest": "http://192.168.1.234:8001/label",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "raw"
+      }
+    },
+
+    "run_inference_with_model":{
+      "dest": "http://192.168.1.234:8001/model/inference",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries":["datumId","modelId"]
+    },
+    "init_inference_model":{
+      "dest": "http://192.168.1.234:8001/model/inference/init",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries":["datumId","modelId"]
+    },
+    "debug_run_inference_with_file":{
+      "dest": "http://192.168.1.234:8001/model/inference/raw",
+      "method": "post",
+      "headers": {
+        "Content-Type": "multipart/form-data",
+        "Accept":"application/json"
+      },
+      "body":{
+        "type":"form-data",
+        "fields":[
+          {"name":"datumFile","type":"file"},
+          {"name":"modelId"}
+        ]
+      }
+    },
+
+    "query_paginated_projects":{
+      "dest": "http://192.168.1.234:8001/project",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries":["from","to","datumId","datasetId","name"]
+    },
+    "create_new_proj":{
+      "dest": "http://192.168.1.234:8001/project",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body":{
+        "type":"raw"
+      }
+    },
+    "get_proj_by_id":{
+      "dest": "http://192.168.1.234:8001/project/{projectId}",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+
+    "add_artifact_during_train_session":{
+      "dest": "http://192.168.1.234:8001/train/artifact",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body":{
+        "type":"form-data",
+        "fields":[{"name":"weightsFile","type":"file"}]
+      },
+      "queries":["modelId","datasetId"]
+    },
+    "run_train_start":{
+      "dest": "http://192.168.1.234:8001/train/start",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body":{
+        "type":"raw"
+      }
+    },
+    "get_train_status":{
+      "dest": "http://192.168.1.234:8001/train/status",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+    "run_train_stop":{
+      "dest": "http://192.168.1.234:8001/train/stop",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body":{
+        "type":"raw"
+      }
+    },
+
+    "query_paginated_models":{
+      "dest": "http://192.168.1.234:8001/trained/model",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries":["from","to","projectId","name"]
+    },
+    "add_trained_model":{
+      "dest": "http://192.168.1.234:8001/trained/model",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body":{
+        "type":"form-data",
+        "fields":[
+          {"name":"modelTemplateId"},
+          {"name":"projectId"},
+          {"name":"classes"},
+          {"name":"modelName"},
+          {"name":"modelTemplateFileParams"}
+        ]
+      }
+    },
+
+    "get_all_mothership_classes":{
+      "dest": "http://192.168.1.234:8001/classes",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+    "get_all_supported_models":{
+      "dest": "http://192.168.1.234:8001/models",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+    "query_server_templates":{
+      "dest": "http://192.168.1.234:8001/template",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries":["from","to"]
     }
   }
 }

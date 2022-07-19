@@ -22,6 +22,6 @@ public class ConfigEndPoint extends RouterNanoHTTPD.GeneralHandler{
       }
       return RouterNanoHTTPD.newFixedLengthResponse(rsp);
     }
-    return RouterNanoHTTPD.newFixedLengthResponse(_configHandler.getAllConfigFiles());
+    return RouterNanoHTTPD.newFixedLengthResponse("Need to specify a config");
   }
 }

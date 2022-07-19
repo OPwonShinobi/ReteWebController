@@ -7,7 +7,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.List;
 
 public class ConfigurationHandler {
 
@@ -34,14 +33,5 @@ public class ConfigurationHandler {
     }
     public String getSetting(String name) {
       return cachedConfigs.has(name) ? cachedConfigs.get(name).toString() : null;
-    }
-    public String getAllConfigFiles() {
-      JSONObject rspObj = new JSONObject();
-      JSONArray configFileNames = new JSONArray();
-      Arrays.stream(new File("./config").listFiles()).forEach(file ->
-        configFileNames.put(file.getName())
-      );
-      rspObj.append("FILES", configFileNames);
-      return rspObj.toString();
     }
 }

@@ -14,6 +14,7 @@ public class App extends RouterNanoHTTPD {
     addRoute("/favicon.png", Homepage.class);
     addRoute("/input", PublicNodeEndPoint.class);
     addRoute("/config", ConfigEndPoint.class);
+    addRoute("/persist", PersistenceEndPoint.class);
   }
 
   public App(final int port) throws IOException {

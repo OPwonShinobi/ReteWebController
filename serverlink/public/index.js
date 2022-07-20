@@ -164,7 +164,7 @@ function handleSettings(editor) {
   const isSaved = Boolean(sessionStorage.getItem("SAVED_GRAPH"));
   displayModal(
     htmlToElement(`
-    <form style="background-color: white" id="modalForm">
+    <div>
       <h4>Settings</h4>
       <input type="radio" name="loadOnStart" id="loadOnStartOn" disabled ${isSaved ? "checked" : ""}>
       <label for="loadOnStartOn">Saved</label>
@@ -174,10 +174,9 @@ function handleSettings(editor) {
       <button id="saveToCacheBtn">Save To Cache</button>      
       <button id="loadFromCacheBtn">Load From Cache</button>
       <button id="clearFromCacheBtn">Delete From Cache</button>
-    </form>
+    </div>
     `)
   );
-  document.getElementById("modalForm").onsubmit = () => {return false};
   document.getElementById("saveToCacheBtn").addEventListener("click", function () {
     const graphJson = editor.toJSON();
     if (Object.keys(graphJson.nodes).length) {//verify if empty graph

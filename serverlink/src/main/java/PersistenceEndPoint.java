@@ -49,4 +49,11 @@ public class PersistenceEndPoint extends RouterNanoHTTPD.GeneralHandler {
       throw new RuntimeException("Shouldn't reach here either");
     }
   }
+
+  @Override
+  public NanoHTTPD.Response delete(RouterNanoHTTPD.UriResource uriResource, Map<String, String> urlParams, NanoHTTPD.IHTTPSession session) {
+    String name = session.getParameters().get("name").get(0);
+    new File("./saves/"+name).delete();
+    return super.delete(uriResource, urlParams, session);
+  }
 }

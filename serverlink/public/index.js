@@ -77,7 +77,6 @@ async function loadMainpane() {
   editor.on("connectioncreate connectionremove noderemove", async ()=>{
     if(editor.silent) return;
 
-    clearListeners();
     await engine.abort();
     await engine.process(editor.toJSON());
   });

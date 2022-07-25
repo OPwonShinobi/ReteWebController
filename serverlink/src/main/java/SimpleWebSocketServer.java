@@ -1,23 +1,20 @@
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import kong.unirest.Callback;
-import kong.unirest.HttpRequest;
-import kong.unirest.HttpRequestWithBody;
-import kong.unirest.HttpResponse;
-import kong.unirest.JsonNode;
-import kong.unirest.Unirest;
-import kong.unirest.UnirestException;
+import kong.unirest.*;
 import org.apache.commons.codec.binary.Base64;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 public class SimpleWebSocketServer extends WebSocketServer {
@@ -65,26 +62,28 @@ public class SimpleWebSocketServer extends WebSocketServer {
     return req;
   }
   //if endpoint needs it, route params are mandatory
-  private HttpRequest handleRouteParams(HttpRequest req, JSONObject endPoint, JSONObject payloadJson) {
+  private HttpRequest handleRouteParams(HttpRequest req, JSONObject endPoint, JSONObject webSockMsg) {
     String dest = endPoint.getString("dest");
     if (Pattern.compile("\\{\\w+}").matcher(dest).find()) { //if url contains {..}
+      JSONObject payloadJson = webSockMsg.getJSONObject(WebSocketUtils.PAYLOAD);
       //extract all words in braces, eg localhost/{user}/{order} returns [user, order]
-      Matcher paramExtractor = Pattern.compile("(?<=\\{)\\w+(?=})").matcher("string to search from here");
+      Matcher paramExtractor = Pattern.compile("(?<=\\{)\\w+(?=})").matcher(dest);
       while (paramExtractor.find()) {
         String paramName = paramExtractor.group();
-        req = req.routeParam(paramName, payloadJson.getString(paramName));
+        req = req.routeParam(paramName, payloadJson.get(paramName).toString());
       }
     }
     return req;
   }
   //every query param is optional
-  private HttpRequest handleQueryParams(HttpRequest req, JSONObject endPoint, JSONObject payloadJson) {
+  private HttpRequest handleQueryParams(HttpRequest req, JSONObject endPoint, JSONObject webSockMsg) {
     if (endPoint.has("queries")) {
+      JSONObject payloadJson = webSockMsg.getJSONObject(WebSocketUtils.PAYLOAD);
       JSONArray queries = endPoint.getJSONArray("queries");
       for (int i = 0; i < queries.length(); i++) {
         String param = queries.getString(i);
         if (payloadJson.has(param)) {
-          req = req.queryString(param, payloadJson.getString(param));
+          req = req.queryString(param, payloadJson.get(param).toString());
         }
       }
     }
@@ -98,12 +97,12 @@ public class SimpleWebSocketServer extends WebSocketServer {
       switch (bodyType) {
         //postman has more, but currently only support these 2
         case "raw":
-          String rawPayload = webSockMsg.getString(WebSocketUtils.PAYLOAD);
+          String rawPayload = webSockMsg.getString(WebSocketUtils.RAW);
           req = ((HttpRequestWithBody)req).body(rawPayload);
           break;
         case "form-data":
           JSONObject formDataPayload = webSockMsg.getJSONObject(WebSocketUtils.PAYLOAD);
-          JSONArray fields = endPoint.getJSONArray("fields");
+          JSONArray fields = body.getJSONArray("fields");
           req = handleBodyFields(req, formDataPayload, fields);
           break;
       }
@@ -112,15 +111,22 @@ public class SimpleWebSocketServer extends WebSocketServer {
   }
   private HttpRequest handleBodyFields(HttpRequest req, JSONObject payload, JSONArray fields) {
     for (int i = 0 ; i < fields.length(); i++) {
-      JSONObject field = fields.getJSONObject(0);
+      JSONObject field = fields.getJSONObject(i);
       String name = field.getString("name");
-      String type = field.has("type")?field.getString("name"):"text";
+      String type = field.has("type") ? field.getString("type"):"text";
       //postman only lists these 2
       if ("file".equals(type)) {
-        req = ((HttpRequestWithBody)req).field(name, base64ToInputStream(payload.getString(name)), "ignore");
+        if (req instanceof HttpRequestWithBody)
+          req = ((HttpRequestWithBody)req).field(name, base64ToInputStream(payload.getString(name)), "ignore");
+        else if (req instanceof MultipartBody)
+          req = ((MultipartBody)req).field(name, base64ToInputStream(payload.getString(name)), "ignore");
       }
       else if ("text".equals(type)) {
-        req = ((HttpRequestWithBody)req).field(name, payload.getString(name));
+        if (req instanceof HttpRequestWithBody)
+          //cannot use getString since string can be int/boolean
+          req = ((HttpRequestWithBody)req).field(name, payload.get(name).toString());
+        else if (req instanceof MultipartBody)
+          req = ((MultipartBody)req).field(name, payload.get(name).toString());
       }
       else {
         throw new RuntimeException("Unsupported field type "+ type);
@@ -132,9 +138,9 @@ public class SimpleWebSocketServer extends WebSocketServer {
     byte[] data = Base64.decodeBase64(base64DataUrl);
     return new ByteArrayInputStream(data);
   }
-  private void sendJsonHttpRequest(JSONObject dataObj, WebSocket conn) {
+  private void sendJsonHttpRequest(JSONObject webSockMsg, WebSocket conn) {
     //for now, specify selected endpoint in data from front end
-    JSONObject endPoint = configHandler.getEndPoint(dataObj.getString(WebSocketUtils.ENDPOINT));
+    JSONObject endPoint = configHandler.getEndPoint(webSockMsg.getString(WebSocketUtils.ENDPOINT));
 
     String dest = endPoint.getString(WebSocketUtils.DEST);
     String method = endPoint.getString(WebSocketUtils.METHOD).toLowerCase();
@@ -142,13 +148,13 @@ public class SimpleWebSocketServer extends WebSocketServer {
     HttpRequest req;
     if (method.equals(WebSocketUtils.POST)) {
       req = Unirest.post(dest);
-      req = handleBody(req, endPoint, dataObj);//only post has body
+      req = handleBody(req, endPoint, webSockMsg);//only post has body
     } else {
       req = Unirest.get(dest);
     }
     req = handleHeaders(req, endPoint);
-    req = handleRouteParams(req, endPoint, dataObj);
-    req = handleQueryParams(req, endPoint, dataObj);
+    req = handleRouteParams(req, endPoint, webSockMsg);
+    req = handleQueryParams(req, endPoint, webSockMsg);
     req.asJsonAsync(new Callback<JsonNode>() {
       @Override
       public void failed(UnirestException e) {

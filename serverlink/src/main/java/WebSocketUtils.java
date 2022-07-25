@@ -8,6 +8,7 @@ public class WebSocketUtils {
   public static final String NAME = "name";
 
   public static final String PAYLOAD = "payload";
+  public static final String RAW = "raw";
   public static final String ENDPOINT = "endpoint";
   public static final String DEST = "dest";
   public static final String METHOD = "method";

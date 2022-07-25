@@ -36,6 +36,9 @@ const wsSocketCache = {
   closeConnection(nodeId) {
     this.sockets.get(nodeId).close();
     this.sockets.delete(nodeId);
+  },
+  getConnection(nodeId) {
+    return this.sockets.get(nodeId);
   }
 };
 const eventListenerCache = {
@@ -111,12 +114,13 @@ export class FileInputNode extends Rete.Component {
     //input only used so MessageSenderNode can trigger it
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", dataSocket))
-    .addControl(new DataUrlFileControl(this.editor, node.data));
+    .addControl(new DataUrlFileControl(this.editor, node.data, "blob"));
   }
   worker(node) {
     //only return file data, disregard caller node's input data
     if (outputHasChildNodes(node, "dat")) {
-      cacheChainingValue(node, node.data["file"]);
+      //data stored under <key> + "file"
+      cacheChainingValue(node, node.data["blobfile"]);
     }
   }
 }
@@ -162,10 +166,6 @@ export class MessageSenderNode extends Rete.Component {
       outputs: {"act": "option"},
       init(task, node){
         eventListenerCache.addListener(node.id, "run", function (e) {
-          if (!node.data["msg"]) {
-            alert("Run cancelled. msg can't be empty!");
-            return;
-          }
           task.run();
           task.reset();
         });
@@ -297,7 +297,7 @@ export class ConditionalNode extends Rete.Component {
     try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
   }
   addCond(key){
-    const ctrl = new TextFileControl(this.editor, this.node["data"][key], key);
+    const ctrl = new TextFileControl(this.editor, this.node["data"], key);
     this.node.addControl(ctrl);
     const output = new Rete.Output(key, "else if", dataSocket);
     this.node.addOutput(output)
@@ -314,7 +314,7 @@ export class ConditionalNode extends Rete.Component {
     //due to tech limitation, else must be first
     .addOutput(new Rete.Output("else", "else", dataSocket))
     .addOutput(new Rete.Output(defaultCond, "if", dataSocket))
-    .addControl(new TextFileControl(this.editor, this.node["data"][defaultCond], defaultCond));
+    .addControl(new TextFileControl(this.editor, this.node["data"], defaultCond));
 
     //extra conditions
     for(const key in this.node["data"]) {
@@ -385,7 +385,7 @@ export class OutputNode extends Rete.Component {
           const rsp = JSON.parse(event.data);
           if (rsp[document.WebSockFields.TYPE] === document.WebSockType.BROADCAST)//ignore messages intended for input nodes
             return;
-          task.run(event.data);
+          task.run(rsp.payload);
           task.reset();
         };
       }
@@ -397,7 +397,7 @@ export class OutputNode extends Rete.Component {
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "trigger", actionSocket));
     node.destructor = function() {
-      wsSocketCache.delete(node.id);
+      wsSocketCache.closeConnection(node.id);
     };
   }
   //called twice, once by parent node, once by socket.onmessage after ws backend returns response
@@ -410,7 +410,7 @@ export class OutputNode extends Rete.Component {
       }
     } else {
       //1st run, worker called by parent node
-      const cachedSocket = wsSocketCache.get(node.id);
+      const cachedSocket = wsSocketCache.getConnection(node.id);
       const cachedData = popParentNodeCache(node);
       const req = {};
       req[WebSockFields.ENDPOINT] = node.data["endpoint_picker"];

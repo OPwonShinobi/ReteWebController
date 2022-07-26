@@ -17,11 +17,13 @@ const dataSocket = new Rete.Socket("Data");
 actionSocket.combineWith(dataSocket);
 
 var WEB_SOCK_PORT = 0;
-fetch("/config?type=setting&name=ws_port")
-.then(rsp => rsp.json())
-.then(port =>
-  WEB_SOCK_PORT = port
-);
+export async function loadWebSockSettings() {
+  await fetch("/config?type=setting&name=ws_port")
+  .then(rsp => rsp.json())
+  .then(port =>
+    WEB_SOCK_PORT = port
+  );
+}
 //client side only ws socket cache. Sockets are untracked on server side
 const wsSocketCache = {
   sockets: new Map(),

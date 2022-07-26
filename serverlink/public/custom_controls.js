@@ -2,16 +2,18 @@ import Rete from "rete";
 import {displayModal} from "./modal";
 
 var endpointNames = [];
-fetch("/config?type=endpoint")
-.then(rsp => rsp.json())
-.then(rspData => {
-  if (rspData.length === 0) {
-    alert("No endpoints added! Output nodes unusable.");
-  }
-  endpointNames = rspData;
-}).catch(err => {
-  console.error("Error fetching node endpoints:" + err);
-});
+export async function loadEndPoints() {
+  await fetch("/config?type=endpoint")
+  .then(rsp => rsp.json())
+  .then(rspData => {
+    if (rspData.length === 0) {
+      alert("No endpoints added! Output nodes unusable.");
+    }
+    endpointNames = rspData;
+  }).catch(err => {
+    console.error("Error fetching node endpoints:" + err);
+  });
+}
 
 export class MessageControl extends Rete.Control {
   constructor(emitter, msg, key) {

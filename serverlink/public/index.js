@@ -20,9 +20,10 @@ import {
   OutputNode,
   InputNode,
   CombinerNode,
-  FileInputNode
+  FileInputNode, loadWebSockSettings
 } from "./custom_nodes"
 import {displayModal} from "./modal";
+import {loadEndPoints} from "./custom_controls";
 
 document.getElementById("favicon").href = Favicon;
 
@@ -85,6 +86,8 @@ async function loadMainpane() {
   });
   editor.trigger("process", {reset:true});
   loadHandlers(editor);
+  await loadEndPoints();
+  await loadWebSockSettings();
   loadSave(editor);
 }
 function loadSave(editor) {

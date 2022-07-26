@@ -90,11 +90,11 @@ async function loadMainpane() {
   await loadWebSockSettings();
   loadSave(editor);
 }
-function loadSave(editor) {
+async function loadSave(editor) {
   const savedGraphJson = sessionStorage.getItem("SAVED_GRAPH");
   if (savedGraphJson) {
     //no need for error checking, only way to add save is through valid existing graph
-    editor.fromJSON(JSON.parse(savedGraphJson));
+    await forceReload(editor, JSON.parse(savedGraphJson));
   }
   return Boolean(savedGraphJson);
 }
@@ -110,7 +110,13 @@ function handleRun() {
   console.log("run triggered", new Date());
   document.dispatchEvent(new CustomEvent("run", {}));
 }
-
+async function forceReload(editor, graphJson) {
+  await editor.fromJSON(graphJson);
+  //fromJSON silently triggers editor.processed event w.o reset flag, need to reset manually so control constructors properly called
+  await editor.trigger("process", {reset:true});
+  //bug exists in tasks plugin: running editor.fromJSON will freeze engine until a connectioncreate event is fired after process event
+  editor.trigger("connectioncreate");
+}
 //to keep ui clean, use temporary <input> and <a> elems for file upload n download
 function handleImport(editor) {
   const elem = window.document.createElement('input');
@@ -121,11 +127,7 @@ function handleImport(editor) {
       const reader = new FileReader();
       reader.readAsText(file, "UTF-8");
       reader.onload = async evt => {
-        await editor.fromJSON(JSON.parse(evt.target.result)).catch(evt => alert("Loading json failed\n" + evt));
-        //fromJSON silently triggers editor.processed event w.o reset flag, need to reset manually so control constructors properly called
-        await editor.trigger("process", {reset:true});
-        //bug exists in tasks plugin: running editor.fromJSON will freeze engine until a connectioncreate event is fired after process event
-        editor.trigger("connectioncreate");
+        await forceReload(editor, JSON.parse(evt.target.result))
       };
       reader.onerror = evt => alert("Reading json failed\n" + evt);
     }
@@ -188,8 +190,8 @@ function handleSettings(editor) {
       alert("Graph empty!")
     }
   });
-  document.getElementById("loadFromCacheBtn").addEventListener("click", function() {
-    const saveExists = loadSave(editor);
+  document.getElementById("loadFromCacheBtn").addEventListener("click", async function() {
+    const saveExists = await loadSave(editor);
     if (!saveExists) {
       alert("No saves exist.\n");
     }

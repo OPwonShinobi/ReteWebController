@@ -76,7 +76,7 @@ public class SimpleWebSocketServer extends WebSocketServer {
   }
   //every query param is optional
   private HttpRequest handleQueryParams(HttpRequest req, JSONObject endPoint, JSONObject webSockMsg) {
-    if (endPoint.has("queries")) {
+    if (endPoint.has("queries") && webSockMsg.has(WebSocketUtils.PAYLOAD)) {
       JSONObject payloadJson = webSockMsg.getJSONObject(WebSocketUtils.PAYLOAD);
       JSONArray queries = endPoint.getJSONArray("queries");
       for (int i = 0; i < queries.length(); i++) {

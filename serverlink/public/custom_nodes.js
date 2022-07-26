@@ -65,7 +65,10 @@ const chainingData = {};
 
 function sendHttpReq(socket, req, data) {
   req[WebSockFields.TYPE] = WebSockType.HTTP;
-  req[WebSockFields.PAYLOAD] = data;
+  //backend considers {} & [] invalid json but in js it's fine
+  if (data) {
+    req[WebSockFields.PAYLOAD] = data;
+  }
   socket.send(JSON.stringify(req));
 }
 function outputHasChildNodes(node, key) {

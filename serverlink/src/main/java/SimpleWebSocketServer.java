@@ -1,10 +1,6 @@
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
-import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,7 +10,6 @@ import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 public class SimpleWebSocketServer extends WebSocketServer {
@@ -57,7 +52,11 @@ public class SimpleWebSocketServer extends WebSocketServer {
   private HttpRequest handleHeaders(HttpRequest req, JSONObject endPoint) {
     JSONObject headers = endPoint.has("headers") ? endPoint.getJSONObject("headers") : new JSONObject();
     for (String key : headers.keySet()) {
-      req = req.header(key, headers.getString(key));
+      String val = headers.getString(key);
+      if (key.equalsIgnoreCase("Content-type") && val.equalsIgnoreCase("multipart/form-data")) {
+        continue;//unirest bug, multipart content-type is supported but cannot be specified
+      }
+      req = req.header(key, val);
     }
     return req;
   }
@@ -109,6 +108,7 @@ public class SimpleWebSocketServer extends WebSocketServer {
     }
     return req;
   }
+
   private HttpRequest handleBodyFields(HttpRequest req, JSONObject payload, JSONArray fields) {
     for (int i = 0 ; i < fields.length(); i++) {
       JSONObject field = fields.getJSONObject(i);
@@ -116,17 +116,23 @@ public class SimpleWebSocketServer extends WebSocketServer {
       String type = field.has("type") ? field.getString("type"):"text";
       //postman only lists these 2
       if ("file".equals(type)) {
-        if (req instanceof HttpRequestWithBody)
-          req = ((HttpRequestWithBody)req).field(name, base64ToInputStream(payload.getString(name)), "ignore");
-        else if (req instanceof MultipartBody)
-          req = ((MultipartBody)req).field(name, base64ToInputStream(payload.getString(name)), "ignore");
+        InputStream fileBytes = base64ToInputStream(payload.getString(name));
+        if (req instanceof HttpRequestWithBody) {
+          ((HttpRequestWithBody)req).noCharset();
+          req = ((HttpRequestWithBody)req).field(name, fileBytes, "temp");
+        }
+        else if (req instanceof MultipartBody) {
+          ((MultipartBody)req).charset(null);
+          req = ((MultipartBody)req).field(name, fileBytes, "temp");
+        }
       }
       else if ("text".equals(type)) {
+        //cannot use getString since string can be int/boolean
+        String fieldData =  payload.get(name).toString();
         if (req instanceof HttpRequestWithBody)
-          //cannot use getString since string can be int/boolean
-          req = ((HttpRequestWithBody)req).field(name, payload.get(name).toString());
+          req = ((HttpRequestWithBody)req).field(name, fieldData);
         else if (req instanceof MultipartBody)
-          req = ((MultipartBody)req).field(name, payload.get(name).toString());
+          req = ((MultipartBody)req).field(name, fieldData);
       }
       else {
         throw new RuntimeException("Unsupported field type "+ type);

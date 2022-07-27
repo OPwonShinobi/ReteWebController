@@ -1,6 +1,8 @@
 {
   "server_port": 8080,
   "ws_port": 8081,
+  "ws_connect_timeout": 1000,
+  "ws_socket_timeout": 10000,
   "graph_version": "serverlink@1.0.0",
   "endpoints" : {
     

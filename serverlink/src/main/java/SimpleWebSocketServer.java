@@ -17,9 +17,8 @@ public class SimpleWebSocketServer extends WebSocketServer {
 
   public SimpleWebSocketServer(InetSocketAddress address, ConfigurationHandler configHandler) {
     super(address);
-    //might move this to configs at some point
-    Unirest.primaryInstance().config().connectTimeout(1000);
-    Unirest.primaryInstance().config().socketTimeout(1000);
+    Unirest.primaryInstance().config().connectTimeout(Integer.parseInt(configHandler.getSetting("ws_connect_timeout")));
+    Unirest.primaryInstance().config().socketTimeout(Integer.parseInt(configHandler.getSetting("ws_socket_timeout")));
     System.out.println(String.format("\nStarting websocket server at %s:%d\n", address.getHostName(), address.getPort()));
     this.configHandler = configHandler;
   }
@@ -168,7 +167,11 @@ public class SimpleWebSocketServer extends WebSocketServer {
       }
       @Override
       public void completed(HttpResponse<JsonNode> rsp) {
-        this.sendToWebSock(rsp.getBody().toString());
+        if (rsp.getStatus() == 200) {
+          this.sendToWebSock(rsp.getBody().toString());
+        } else {
+          this.sendToWebSock(String.format("%d %s error: %s", rsp.getStatus(), rsp.getStatusText(), rsp.mapError(String.class)));
+        }
       }
       private void sendToWebSock(String msg) {
         JSONObject rspObj = new JSONObject();

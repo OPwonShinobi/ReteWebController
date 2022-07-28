@@ -163,19 +163,20 @@ public class SimpleWebSocketServer extends WebSocketServer {
     req.asJsonAsync(new Callback<JsonNode>() {
       @Override
       public void failed(UnirestException e) {
-        this.sendToWebSock(e.getMessage());
+        this.sendToWebSock(-1, e.getMessage());
       }
       @Override
       public void completed(HttpResponse<JsonNode> rsp) {
         if (rsp.getStatus() == 200) {
-          this.sendToWebSock(rsp.getBody().toString());
+          this.sendToWebSock(rsp.getStatus(), rsp.getBody().toString());
         } else {
-          this.sendToWebSock(String.format("%d %s error: %s", rsp.getStatus(), rsp.getStatusText(), rsp.mapError(String.class)));
+          this.sendToWebSock(rsp.getStatus(), rsp.mapError(String.class));
         }
       }
-      private void sendToWebSock(String msg) {
+      private void sendToWebSock(int status, String msg) {
         JSONObject rspObj = new JSONObject();
         rspObj.put(WebSocketUtils.TYPE, WebSocketUtils.Type.HTTP.toString());
+        rspObj.put(WebSocketUtils.STATUS, status);
         rspObj.put(WebSocketUtils.PAYLOAD, msg);
         conn.send(rspObj.toString());
       }

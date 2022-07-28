@@ -390,7 +390,7 @@ export class OutputNode extends Rete.Component {
   constructor() {
     super("Output");
     this.task = {
-      outputs: {"dat":"option"},
+      outputs: {"dat":"option", "err":"option"},
       init(task, node) {
         const wsSocket = wsSocketCache.addConnection(node.id);
         if (!wsSocket) return;
@@ -408,7 +408,8 @@ export class OutputNode extends Rete.Component {
     node
     .addControl(new DropdownControl(this.editor, "endpoint_picker", node.data["endpoint_picker"], "endpoint"))
     .addInput(new Rete.Input("dat", "data", dataSocket))
-    .addOutput(new Rete.Output("dat", "trigger", actionSocket));
+    .addOutput(new Rete.Output("dat", "trigger", actionSocket))
+    .addOutput(new Rete.Output("err", "error", actionSocket));
     node.destructor = function() {
       wsSocketCache.closeConnection(node.id);
     };
@@ -416,19 +417,24 @@ export class OutputNode extends Rete.Component {
   //called twice, once by parent node, once by socket.onmessage after ws backend returns response
   worker(node, inputs, data) {
     if (data) {
-      //2nd run, worker called by websock
-      if (outputHasChildNodes(node, "dat")) {
-        cacheChainingValue(node, data);//data contains status + payload/error, node offloads it to child node to manage
-        this.closed = []; //now allow propagation
+    //2nd run, worker called by websock
+      const isSuccess = data.status === 200;
+      if (isSuccess && outputHasChildNodes(node, "dat")) {
+        cacheChainingValue(node, data.payload);//data -> payload
+        this.closed = ["err"];
+      } else if (!isSuccess && outputHasChildNodes(node, "err")) {
+        cacheChainingValue(node, data);//data -> status + error payload
+        this.closed = ["dat"];
       }
+      //now allow propagation
     } else {
-      //1st run, worker called by parent node
+    //1st run, worker called by parent node
       const cachedSocket = wsSocketCache.getConnection(node.id);
       const cachedData = popParentNodeCache(node);
       const req = {};
       req[WebSockFields.ENDPOINT] = node.data["endpoint_picker"];
       sendHttpReq(cachedSocket, req, cachedData);
-      this.closed = ["dat"]; //prevent propagation until second run
+      this.closed = ["dat","err"]; //prevent propagation until second run
     }
   }
 }

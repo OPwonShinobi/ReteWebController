@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 public class WebSocketUtils {
   public static final String TYPE = "type";
+  public static final String STATUS = "status";
   public static final String NAME = "name";
 
   public static final String PAYLOAD = "payload";

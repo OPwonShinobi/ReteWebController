@@ -107,7 +107,7 @@ function loadHandlers(editor) {
 }
 function handleRun() {
   //new ui for selecting run now/later
-  console.log("run triggered", new Date());
+  console.log("Run all triggered", new Date());
   document.dispatchEvent(new CustomEvent("run", {}));
 }
 async function forceReload(editor, graphJson) {

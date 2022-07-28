@@ -171,16 +171,24 @@ export class MessageSenderNode extends Rete.Component {
       outputs: {"act": "option"},
       init(task, node){
         eventListenerCache.addListener(node.id, "run", function (e) {
-          task.run();
-          task.reset();
+          if (!e.detail || e.detail === node.id) {
+            task.run();
+            task.reset();
+          }
         });
       }
     }
   }
 
+  run(nodeId) {
+    console.log("Run triggered from node", nodeId, new Date());
+    document.dispatchEvent(new CustomEvent("run", {detail:nodeId}));
+  }
+
   builder(node) {
     node
     .addControl(new MessageControl(this.editor, node.data["msg"]))
+    .addControl(new ButtonControl("runTrigger", "Run", this.run.bind(null, node.id), this))
     .addOutput(new Rete.Output("act", "trigger", actionSocket));
     node.destructor = function() {
       eventListenerCache.removeListener(node.id);
@@ -390,7 +398,7 @@ export class OutputNode extends Rete.Component {
           const rsp = JSON.parse(event.data);
           if (rsp[document.WebSockFields.TYPE] === document.WebSockType.BROADCAST)//ignore messages intended for input nodes
             return;
-          task.run(rsp.payload);
+          task.run(rsp);
           task.reset();
         };
       }
@@ -410,7 +418,7 @@ export class OutputNode extends Rete.Component {
     if (data) {
       //2nd run, worker called by websock
       if (outputHasChildNodes(node, "dat")) {
-        cacheChainingValue(node, data);
+        cacheChainingValue(node, data);//data contains status + payload/error, node offloads it to child node to manage
         this.closed = []; //now allow propagation
       }
     } else {

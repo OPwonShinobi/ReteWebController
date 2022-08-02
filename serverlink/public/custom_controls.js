@@ -59,7 +59,7 @@ export class TextFileControl extends Rete.Control {
     this.key = thisKey;
     data = data || {};
     const filename = data[key + "filename"];
-    const file = data[key + "file"];
+    const file = data[key + "file"] ?? "";
     this.template = `
       <input :value="filename" @dblclick="loadFile($event)" @input="renameFile($event)" @pointermove.stop=""/>
       <input :value="file" style="display: none"/>

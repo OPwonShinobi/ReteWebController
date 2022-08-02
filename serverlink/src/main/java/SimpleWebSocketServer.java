@@ -4,7 +4,14 @@ import java.net.InetSocketAddress;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import kong.unirest.*;
+import kong.unirest.Callback;
+import kong.unirest.HttpRequest;
+import kong.unirest.HttpRequestWithBody;
+import kong.unirest.HttpResponse;
+import kong.unirest.JsonNode;
+import kong.unirest.MultipartBody;
+import kong.unirest.Unirest;
+import kong.unirest.UnirestException;
 import org.apache.commons.codec.binary.Base64;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;

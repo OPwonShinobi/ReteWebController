@@ -154,7 +154,7 @@ public class SimpleWebSocketServer extends WebSocketServer {
     //for now, specify selected endpoint in data from front end
     JSONObject endPoint = configHandler.getEndPoint(webSockMsg.getString(WebSocketUtils.ENDPOINT));
 
-    String dest = endPoint.getString(WebSocketUtils.DEST);
+    String dest = endPoint.getString(WebSocketUtils.DEST).replace("$HOST", configHandler.getEndpointHost());
     String method = endPoint.getString(WebSocketUtils.METHOD).toLowerCase();
 
     HttpRequest req;

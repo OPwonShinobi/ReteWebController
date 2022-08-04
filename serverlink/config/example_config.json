@@ -2,9 +2,10 @@
   "server_port": 8080,
   "ws_port": 8081,
   "graph_version": "serverlink@1.0.0",
+  "endpoint_host": "http://localhost:8001", //gets overwritten by environment var SERVERLINK_ENDPOINT_HOST
   "endpoints" : {
     "simple_get_example": {
-      "dest": "http://localhost:8080/endpoint",
+      "dest": "$HOST/endpoint", //if using custom endpoint, replace $HOST with full URL
       "method": "get",//case insensitive
       "headers": {
         "Accept": "application/json"
@@ -13,7 +14,7 @@
     },
 
     "simple_post_example": {
-      "dest": "http://localhost:8080/endpoint",
+      "dest": "$HOST/endpoint",
       "method": "post",
       "headers": {
         "Content-Type": "application/json"
@@ -22,7 +23,7 @@
 
     //route params can be used by get or post
     "route_params_example": {
-      "dest": "http://localhost:8080/endpoint/{param1}/{param2}", //specifying any params in {} is enough, server will fetch these fields from payload (must be same name)
+      "dest": "$HOST/endpoint/{param1}/{param2}", //specifying any params in {} is enough, server will fetch these fields from payload (must be same name)
       "method": "get",
       "headers": {
         "Accept": "application/json"
@@ -31,7 +32,7 @@
 
     //query params can be used by get or post
     "query_params_example": {
-      "dest": "http://localhost:8080/endpoint", //this gets turned into http://localhost:8080/endpoint?param1=XXX&param2=YYY
+      "dest": "$HOST/endpoint", //this gets turned into http://localhost:8080/endpoint?param1=XXX&param2=YYY
       "method": "get",
       "headers": {
         "Accept": "application/json"
@@ -40,7 +41,7 @@
     },
 
     "post_form_example": {
-      "dest": "http://localhost:8080/endpoint",
+      "dest": "$HOST/endpoint",
       "method": "post",
       "headers": {
         "Accept": "application/json"
@@ -56,7 +57,7 @@
     },
     
     "post_raw_example": {
-      "dest": "http://localhost:8080/endpoint",
+      "dest": "$HOST/endpoint",
       "method": "post",
       "headers": {
         "Content-Type": "application/json"

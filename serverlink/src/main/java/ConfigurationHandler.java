@@ -27,6 +27,10 @@ public class ConfigurationHandler {
       JSONObject allEndPoints = cachedConfigs.getJSONObject("endpoints");
       return allEndPoints.has(name) ? allEndPoints.getJSONObject(name) : new JSONObject();
     }
+    public String getEndpointHost() {
+      String envVarHost = System.getenv("SERVERLINK_ENDPOINT_HOST");
+      return envVarHost == null ? cachedConfigs.getString("endpoint_host") : envVarHost;
+    }
     public JSONArray getEndPoints() {
       JSONObject allEndPoints = cachedConfigs.getJSONObject("endpoints");
       return new JSONArray(allEndPoints.keySet());

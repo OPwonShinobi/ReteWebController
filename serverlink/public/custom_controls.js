@@ -18,6 +18,7 @@ export async function loadEndPoints() {
 export class MessageControl extends Rete.Control {
   constructor(emitter, msg, key) {
     const thisKey = key || "msg";
+    msg = msg || "";
     super(thisKey);
     this.key = thisKey;
     this.emitter = emitter;

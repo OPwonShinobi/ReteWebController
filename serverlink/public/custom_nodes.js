@@ -239,7 +239,7 @@ function popParentNodeCache(node) {
 }
 function popSingleParentCache(parentId) {
   let cacheData = null;
-  if (chainingData[parentId]) {
+  if (chainingData[parentId] != null) {
     if (chainingData[parentId].childCount) {
       cacheData = chainingData[parentId].data;
       chainingData[parentId].childCount--;
@@ -266,7 +266,7 @@ function popMultiParentNodeCache(node) {
     if (inputConns.length) {
       const parentId = inputConns[0].node;
       cacheData = popSingleParentCache(parentId);
-      if (cacheData) break;
+      if (cacheData != null) break;
     }
   }
   return cacheData;
@@ -381,8 +381,7 @@ export class LogNode extends Rete.Component {
   }
 
   worker(node) {
-    let data = popParentNodeCache(node);
-    console.log(`Logger id: ${node.id}, msg: ${node.data["msg"]}, data:`, data);
+    console.log("Logger id \\ msg \\ data:", node.id, node.data["msg"], popParentNodeCache(node));
   }
 }
 

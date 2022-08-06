@@ -3,7 +3,7 @@ import {displayModal} from "./modal";
 
 var endpointNames = [];
 export async function loadEndPoints() {
-  await fetch("/config?type=endpoint")
+  await fetch("/config?type=endpoints")
   .then(rsp => rsp.json())
   .then(rspData => {
     if (rspData.length === 0) {
@@ -212,10 +212,11 @@ export function isMainpane(editor) {
   return editor.components.size > 0;
 }
 export class DropdownControl extends Rete.Control {
-  constructor(emitter, key, selected, configType) {
+  constructor(emitter, key, selected, configType, callBackFunc) {
     super(key);
     this.emitter = emitter;
     this.template =`<select :value="selected" @change="onChange($event)" @pointermove.stop="">`;
+    this.callBack = callBackFunc;
     this.scope = {
       selected,
       onChange: this.changeHandler.bind(this),
@@ -231,6 +232,7 @@ export class DropdownControl extends Rete.Control {
   changeHandler(e) {
     this.scope.selected = e.target.value;
     this.update();
+    this.callBack ? this.callBack() : null;
   }
   optionClickHandler(e) {
     this.emitter.trigger("click");//click background, workaround for node staying selected after option clicked

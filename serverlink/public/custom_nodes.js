@@ -63,12 +63,11 @@ const eventListenerCache = {
 
 const chainingData = {};
 
-function sendHttpReq(socket, req, data) {
+function sendHttpReq(socket, data, endpointData) {
+  const req = {};
   req[WebSockFields.TYPE] = WebSockType.HTTP;
-  //backend considers {} & [] invalid json but in js it's fine
-  if (data) {
-    req[WebSockFields.PAYLOAD] = data;
-  }
+  req[WebSockFields.ENDPOINT] = JSON.parse(endpointData);//backend needs this as json
+  req[WebSockFields.PAYLOAD] = data;
   socket.send(JSON.stringify(req));
 }
 function outputHasChildNodes(node, key) {
@@ -404,8 +403,18 @@ export class OutputNode extends Rete.Component {
     }
   }
   builder(node) {
+    function setupEndpointConfigs() {
+      fetch("/config?type=endpoint&name=" + node.data["endpoint_name"])
+        .then(rsp => rsp.json())
+        .then(rspJson => {
+          node.data["endpoint_configfile"] = JSON.stringify(rspJson, null, 4);
+      });
+    }
+    node.data["endpoint_configfilename"] = node.data["endpoint_configfilename"] || "endpoint settings";
+
     node
-    .addControl(new DropdownControl(this.editor, "endpoint_picker", node.data["endpoint_picker"], "endpoint"))
+    .addControl(new DropdownControl(this.editor, "endpoint_name", node.data["endpoint_name"], "endpoint", setupEndpointConfigs))
+    .addControl(new TextFileControl(this.editor, node.data, "endpoint_config"))
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "trigger", actionSocket))
     .addOutput(new Rete.Output("err", "error", actionSocket));
@@ -430,9 +439,7 @@ export class OutputNode extends Rete.Component {
     //1st run, worker called by parent node
       const cachedSocket = wsSocketCache.getConnection(node.id);
       const cachedData = popParentNodeCache(node);
-      const req = {};
-      req[WebSockFields.ENDPOINT] = node.data["endpoint_picker"];
-      sendHttpReq(cachedSocket, req, cachedData);
+      sendHttpReq(cachedSocket, cachedData, node.data["endpoint_configfile"]);
       this.closed = ["dat","err"]; //prevent propagation until second run
     }
   }

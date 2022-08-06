@@ -152,9 +152,9 @@ public class SimpleWebSocketServer extends WebSocketServer {
   }
   private void sendJsonHttpRequest(JSONObject webSockMsg, WebSocket conn) {
     //for now, specify selected endpoint in data from front end
-    JSONObject endPoint = configHandler.getEndPoint(webSockMsg.getString(WebSocketUtils.ENDPOINT));
+    JSONObject endPoint = webSockMsg.getJSONObject(WebSocketUtils.ENDPOINT);
 
-    String dest = endPoint.getString(WebSocketUtils.DEST).replace("$HOST", configHandler.getEndpointHost());
+    String dest = endPoint.getString(WebSocketUtils.DEST);
     String method = endPoint.getString(WebSocketUtils.METHOD).toLowerCase();
 
     HttpRequest req;

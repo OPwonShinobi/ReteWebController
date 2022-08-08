@@ -215,7 +215,7 @@ export class DropdownControl extends Rete.Control {
   constructor(emitter, key, selected, configType, callBackFunc) {
     super(key);
     this.emitter = emitter;
-    this.template =`<select :value="selected" @change="onChange($event)" @pointermove.stop="" @keyup.enter="optionClicked($event)">`;
+    this.template =`<select :value="selected" @change="onChange($event)" @pointermove.stop="" @keyup.enter.esc="optionClicked($event)">`;
     this.callBack = callBackFunc;
     this.scope = {
       selected,

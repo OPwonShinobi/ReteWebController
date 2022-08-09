@@ -7,7 +7,7 @@ export async function loadEndPoints() {
   .then(rsp => rsp.json())
   .then(rspData => {
     if (rspData.length === 0) {
-      alert("No endpoints added! Output nodes unusable.");
+      alert("No endpoints added! Need to manually set endpoints.");
     }
     endpointNames = rspData;
   }).catch(err => {

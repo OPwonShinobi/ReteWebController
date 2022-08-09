@@ -627,3 +627,54 @@ export class CombinerNode extends Rete.Component {
     }
   }
 }
+export class RepeaterNode extends Rete.Component {
+  constructor(){
+    super("Repeater");
+    this.task = {
+      outputs: {dat:"option"},
+      init(task, node){
+        eventListenerCache.addListener(node.id, "loop", function (e) {
+          if (e.detail === node.id) {
+            task.run("dummy data");
+            task.reset();
+          }
+        });
+      }
+    }
+  }
+  builder(node) {
+    node.data["loopsFuncfilename"] = node.data["loopsFuncfilename"] || "calculate loops";
+
+    node
+    .addControl(new MessageControl(this.editor, node.data["loops"] || "10", "loops"))
+    .addControl(new TextFileControl(this.editor, node.data, "loopsFunc"))
+    .addInput(new Rete.Input("dat", "data", dataSocket))
+    .addOutput(new Rete.Output("dat", "data", dataSocket));
+
+    node.destructor = function() {
+      eventListenerCache.removeListener(node.id);
+    };
+  }
+  //at least 2 calls
+  worker(node, input, data) {
+    //first run
+    if (!data) {
+      const cachedData = popParentNodeCache(node);
+      let totalLoops = 1; //by default run once
+      if (node.data["loops"]) {
+        totalLoops = parseInt(node.data["loops"]);
+      } else if (node.data["loopsFuncfile"]) {
+        totalLoops = parseInt(runCustomCode(node.data["loopsFuncfile"], data));
+      }
+      const dataToBeCached = {childCount: totalLoops, data: cachedData};
+      if (outputHasChildNodes(node, "dat")) {
+        cacheChainingValue(node, dataToBeCached);
+        //including this run, trigger this worker method n-1 more times thru task plugin
+        for (let i = 1; i < totalLoops; i++) {
+          document.dispatchEvent(new CustomEvent("loop", {detail:node.id}));
+        }
+      }
+    }
+    //from 2nd run onwards, dont do anything, data already cached. Let tasks handle
+  }
+}

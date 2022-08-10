@@ -1,5 +1,5 @@
 import Rete from "rete";
-import {displayModal} from "./modal";
+import {displayTextEditor} from "./modal";
 
 var endpointNames = [];
 export async function loadEndPoints() {
@@ -81,13 +81,10 @@ export class TextFileControl extends Rete.Control {
     this._alight.scan();
   }
   showHandler(e) {
-    const jsDisplay = document.createElement("textarea");
-    jsDisplay.value = this.getData(this.key + "file")
-    jsDisplay.onchange = (() => {
-      this.scope.file = jsDisplay.value;
+    displayTextEditor(this.getData(this.key + "file"), function(value){
+      this.scope.file = value;
       this.update();
-    }).bind(this);
-    displayModal(jsDisplay);
+    }.bind(this));
   }
   loadHandler(e) {
     const elem = window.document.createElement('input');

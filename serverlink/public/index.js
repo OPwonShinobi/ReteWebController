@@ -5,6 +5,7 @@ import AlightRenderPlugin from "rete-alight-render-plugin";
 import DockPlugin from "rete-dock-plugin";
 import AdvancedSelectionPlugin from "@mbraun/rete-advanced-selection-plugin";
 import TaskPlugin from "rete-task-plugin";
+import AreaPlugin from "rete-area-plugin";
 
 import "./style.css";
 import Favicon from "./favicon.png";
@@ -52,6 +53,7 @@ function setPlugins(editor) {
   editor.use(AdvancedSelectionPlugin);
   //needed for triggering events from outside the editor
   editor.use(TaskPlugin);
+  editor.use(AreaPlugin);
 }
 
 
@@ -106,6 +108,7 @@ function loadHandlers(editor) {
   document.getElementById("import_btn").onclick = handleImport.bind(null, editor);
   document.getElementById("export_btn").onclick = handleExport.bind(null, editor);
   document.getElementById("settings_btn").onclick = handleSettings.bind(null, editor);
+  document.getElementById("node_search_bar").onchange = handleSearch;
 }
 function handleRun() {
   //new ui for selecting run now/later
@@ -114,6 +117,7 @@ function handleRun() {
 }
 async function forceReload(editor, graphJson) {
   await editor.fromJSON(graphJson);
+  AreaPlugin.zoomAt(editor);
   //fromJSON silently triggers editor.processed event w.o reset flag, need to reset manually so control constructors properly called
   await editor.trigger("process", {reset:true});
   //bug exists in tasks plugin: running editor.fromJSON will freeze engine until a connectioncreate event is fired after process event

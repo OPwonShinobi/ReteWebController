@@ -212,7 +212,21 @@ function handleSettings(editor) {
     document.getElementById("loadOnStartOff").checked = !isSaved;
   }
 }
-
+function handleSearch(e) {
+  const searchTerm = e.target.value;
+  let elem;
+  if (!searchTerm) {
+    return;
+  } else {
+    //firefox uses xpath 1, need to use this workaround
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+    const xpath = `//div[@id='rete_legend']//div[contains(@class,'title')][contains(
+      translate(., '${alphabet.toUpperCase()}', '${alphabet}'),'${searchTerm.toLowerCase()}'
+    )]`;
+    elem = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+  }
+  elem ? elem.scrollIntoView() : null;
+}
 window.onload = async function() {
   loadMainpane();
 };

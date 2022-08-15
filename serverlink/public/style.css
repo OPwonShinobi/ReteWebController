@@ -47,6 +47,13 @@ html, body {
 }
 .w3-sidebar{height:100%;width:20%;background-color:#fff;position:fixed!important;z-index:1;overflow:auto;right:0;}
 
+#unscrollable_sidebar {
+  height: auto;
+  z-index: 2;
+}
+#rete_legend {
+  margin-top: 6%;
+}
 /* conditional node styling*/
 .node.conditional .btn_container .control:first-child {
   float:left;

@@ -34,6 +34,9 @@ export function displayTextEditor(initVal, updateValCallBack) {
             "globalReturn": true
           }
         },
+        "env": {
+          "es6": true
+        },
         "rules": {}
       })),
     ],

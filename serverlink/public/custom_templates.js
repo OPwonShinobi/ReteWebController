@@ -57,7 +57,7 @@ export const SpreaderTemplate = `
     </div>
   </div>
 `;
-export const CombinerTemplate = `
+export const JunctionTemplate = `
   <div class="node {{isSelected(node)?'selected':''}} {{toClassName(node.name)}}">
     <div class="title">{{node.name}}</div>
     <!-- Controls-->

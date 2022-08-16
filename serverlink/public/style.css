@@ -52,7 +52,7 @@ html, body {
   z-index: 2;
 }
 #rete_legend {
-  margin-top: 6%;
+  transform: translateY(15%);
 }
 /* conditional node styling*/
 .node.conditional .btn_container .control:first-child {

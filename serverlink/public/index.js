@@ -24,7 +24,7 @@ import {
   FileInputNode,
   RepeaterNode
 } from "./custom_nodes"
-import {loadWebSockSettings} from "node_utils";
+import {loadWebSockSettings} from "./node_utils";
 import {displayModal} from "./modal";
 import {loadEndPoints} from "./custom_controls";
 

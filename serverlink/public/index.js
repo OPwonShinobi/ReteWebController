@@ -6,6 +6,7 @@ import DockPlugin from "rete-dock-plugin";
 import AdvancedSelectionPlugin from "@mbraun/rete-advanced-selection-plugin";
 import TaskPlugin from "rete-task-plugin";
 import AreaPlugin from "rete-area-plugin";
+import CommentPlugin from "rete-comment-plugin";
 
 import "./style.css";
 import Favicon from "./favicon.png";
@@ -54,6 +55,7 @@ function setPlugins(editor) {
   //needed for triggering events from outside the editor
   editor.use(TaskPlugin);
   editor.use(AreaPlugin);
+  editor.use(CommentPlugin, { margin: 50 });
 }
 
 

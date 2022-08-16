@@ -18,6 +18,8 @@ import {
   wsSocketCache,
   nodeDataCache
 } from "./node_utils";
+//workaround for browser optimization making debugging hard
+let nodeCache = nodeDataCache;
 
 const dataSocket = new Rete.Socket("Data");
 const actionSocket = new Rete.Socket("Action");
@@ -38,9 +40,9 @@ export class CustomJsNode extends Rete.Component {
   }
   worker(node) {
     const funcStr = node.data["textfile"];
-    const inputData = nodeDataCache.popParentNodeCache(node);
+    const inputData = nodeCache.popParentNodeCache(node);
     const outputData = runCustomCode(funcStr, inputData);
-    nodeDataCache.cacheChainingValue(node, "dat", outputData);
+    nodeCache.cacheChainingValue(node, "dat", outputData);
   }
 }
 export class FileInputNode extends Rete.Component {
@@ -59,8 +61,8 @@ export class FileInputNode extends Rete.Component {
   }
   worker(node) {
     //data stored under <key> + "file"
-    const cacheData = nodeDataCache.popParentNodeCache(node);
-    nodeDataCache.cacheChainingValue(node, "dat", {file: node.data["blobfile"], data: cacheData});
+    const cacheData = nodeCache.popParentNodeCache(node);
+    nodeCache.cacheChainingValue(node, "dat", {file: node.data["blobfile"], data: cacheData});
   }
 }
 export class KeydownNode extends Rete.Component {
@@ -90,7 +92,7 @@ export class KeydownNode extends Rete.Component {
 
   worker(node, inputs, data) {
     console.log(node.name, node.id, data);
-    nodeDataCache.cacheChainingValue(node, "act", data);
+    nodeCache.cacheChainingValue(node, "act", data);
   }
 }
 
@@ -127,7 +129,7 @@ export class MessageSenderNode extends Rete.Component {
   }
 
   worker(node) {
-    nodeDataCache.cacheChainingValue(node, "act", String(node.data["msg"]));
+    nodeCache.cacheChainingValue(node, "act", String(node.data["msg"]));
   }
 }
 export class RelayNode extends Rete.Component {
@@ -144,7 +146,7 @@ export class RelayNode extends Rete.Component {
     .addOutput(new Rete.Output("dat", "data", dataSocket));
   }
   worker(node) {
-    nodeDataCache.cacheChainingValue(node, "dat", nodeDataCache.popParentNodeCache(node));
+    nodeCache.cacheChainingValue(node, "dat", nodeCache.popParentNodeCache(node));
   }
 }
 
@@ -154,7 +156,15 @@ export class ConditionalNode extends Rete.Component {
   constructor(){
     super("Conditional");
     this.task = {
-      "outputs": {"else":"option", "opt0":"option"}
+      "outputs": {"else":"option", "opt0":"option"},
+      init(task, node){
+        eventListenerCache.addListener(node.id, "cond", function (e) {
+          if (e.detail.id === node.id) {
+            task.run(e.detail.data);
+            task.reset();
+          }
+        });
+      }
     };
     this.data.template = ConditionalNodeTemplate;
   }
@@ -189,8 +199,8 @@ export class ConditionalNode extends Rete.Component {
   addCond(key){
     const ctrl = new TextFileControl(this.editor, this.node["data"], key);
     this.node.addControl(ctrl);
-    const output = new Rete.Output(key, "else if", dataSocket);
-    this.node.addOutput(output)
+    const output = new Rete.Output(key, "else if", actionSocket);
+    this.node.addOutput(output);
     this.task["outputs"][key] = "option";
   }
   builder(node) {
@@ -202,8 +212,8 @@ export class ConditionalNode extends Rete.Component {
     .addControl(new ButtonControl("add", "Add", this.addHandler, this))
     .addControl(new ButtonControl("delete", "Delete", this.removeHandler, this))
     //due to tech limitation, else must be first
-    .addOutput(new Rete.Output("else", "else", dataSocket))
-    .addOutput(new Rete.Output(defaultCond, "if", dataSocket))
+    .addOutput(new Rete.Output("else", "else", actionSocket))
+    .addOutput(new Rete.Output(defaultCond, "if", actionSocket))
     .addControl(new TextFileControl(this.editor, this.node["data"], defaultCond));
 
     //extra conditions
@@ -213,28 +223,35 @@ export class ConditionalNode extends Rete.Component {
         this.addCond(key);
     }
   }
-  worker(node) {
-    const data = nodeDataCache.popParentNodeCache(node);
-    //set closed to array of non-selected outputs, these are reversed
-    this.closed = [];
-    let matches = 0;
-    for (const key in node.outputs) {
-      if (key === "else") {continue;}
-      if (!getOutputChildCount(node, key)) {continue;}
-      const funcStr = node.data[key + "file"];
-      const isMatch = Boolean(runCustomCode(funcStr, data));
-      if (isMatch) {
-        matches++;
-        nodeDataCache.cacheChainingValue(node, key, data);
-      } else {
+  worker(node, input, parentData) {
+    if (!parentData) {
+      //1st run
+      const data = nodeCache.popParentNodeCache(node);
+      let matches = 0;
+      let closed2ndRun = [];
+      for (const key in node.outputs) {
         this.closed.push(key);
+        if (key === "else") {continue;}
+        const funcStr = node.data[key + "file"];
+        const isMatch = Boolean(runCustomCode(funcStr, data));
+        if (isMatch) {
+          matches++;
+          nodeCache.cacheChainingValue(node, key, data);
+        } else {
+          closed2ndRun.push(key);
+        }
       }
-    }
-
-    if (matches > 0) {
-      this.closed.push("else");
+      if (matches > 0) {
+        closed2ndRun.push("else");
+      } else {
+        nodeCache.cacheChainingValue(node, "else", data);
+      }
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent("cond", {detail: {id: node.id, data: closed2ndRun}}));
+      },100);
     } else {
-      nodeDataCache.cacheChainingValue(node, "else", data);
+      //2nd run
+      this.closed = parentData;
     }
   }
 }
@@ -254,7 +271,7 @@ export class LogNode extends Rete.Component {
   }
 
   worker(node) {
-    console.log("Logger id \\ msg \\ data:", node.id, node.data["msg"], nodeDataCache.popParentNodeCache(node));
+    console.log("Logger id \\ msg \\ data:", node.id, node.data["msg"], nodeCache.popParentNodeCache(node));
   }
 }
 
@@ -302,17 +319,17 @@ export class OutputNode extends Rete.Component {
     //2nd run, worker called by websock
       const isSuccess = data.status === 200;
       if (isSuccess) {
-        nodeDataCache.cacheChainingValue(node, "dat", data.payload);//data -> payload
+        nodeCache.cacheChainingValue(node, "dat", data.payload);//data -> payload
         this.closed = ["err"];
       } else {
-        nodeDataCache.cacheChainingValue(node, "err", data);//data -> status + error payload
+        nodeCache.cacheChainingValue(node, "err", data);//data -> status + error payload
         this.closed = ["dat"];
       }
       //now allow propagation
     } else {
     //1st run, worker called by parent node
       const cachedSocket = wsSocketCache.getConnection(node.id);
-      const cachedData = nodeDataCache.popParentNodeCache(node);
+      const cachedData = nodeCache.popParentNodeCache(node);
       sendHttpReq(cachedSocket, cachedData, node.data["endpoint_configfile"]);
       this.closed = ["dat","err"]; //prevent propagation until second run
     }
@@ -351,7 +368,7 @@ export class InputNode extends Rete.Component {
     };
   }
   worker(node, inputs, data) {
-    nodeDataCache.cacheChainingValue(node, "dat", data);
+    nodeCache.cacheChainingValue(node, "dat", data);
   }
 }
 
@@ -418,11 +435,11 @@ export class SpreaderNode extends Rete.Component {
     }
   }
   worker(node) {
-    const spreadData = nodeDataCache.popParentNodeCache(node);
+    const spreadData = nodeCache.popParentNodeCache(node);
     // keep closed empty, do not close any connections: send to all child nodes
     this.closed = [];
     for (const key in node.outputs) {
-      nodeDataCache.cacheChainingValue(node, key, spreadData);
+      nodeCache.cacheChainingValue(node, key, spreadData);
     }
   }
 }
@@ -481,14 +498,14 @@ export class JunctionNode extends Rete.Component {
     .addInput(new Rete.Input("opt0", "data", dataSocket))
     .addControl(new ButtonControl("add", "Add", this.addHandler, this))
     .addControl(new ButtonControl("delete", "Delete", this.removeHandler, this))
-    .addOutput(new Rete.Output("dat", "data", dataSocket));
+    .addOutput(new Rete.Output("dat", "data", actionSocket));
     for (const key in this.node["data"]) {
       this.addIn(key);
     }
   }
   worker(node) {
-    const data = nodeDataCache.popMultiParentNodeCache(node);
-    nodeDataCache.cacheChainingFifoValue(node, "dat", data);
+    const data = nodeCache.popMultiParentNodeCache(node);
+    nodeCache.cacheChainingValue(node, "dat", data);
   }
 }
 export class RepeaterNode extends Rete.Component {
@@ -523,7 +540,7 @@ export class RepeaterNode extends Rete.Component {
   worker(node, input, data) {
     //first run
     if (!data) {
-      const cachedData = nodeDataCache.popParentNodeCache(node);
+      const cachedData = nodeCache.popParentNodeCache(node);
       let totalLoops = 1; //by default run once
       if (node.data["loops"]) {
         totalLoops = parseInt(node.data["loops"]);
@@ -531,8 +548,7 @@ export class RepeaterNode extends Rete.Component {
         totalLoops = parseInt(runCustomCode(node.data["loopsFuncfile"], data));
       }
       const childCount = getOutputChildCount(node, "dat");
-      const dataToBeCached = {childCount: totalLoops * childCount, data: cachedData};
-      nodeDataCache.forceCacheChainingValue(node, dataToBeCached);
+      nodeCache.cacheValueWithChildCount(node, cachedData, totalLoops * childCount);
       //rete task plugin uses BFS, current node will run N times before any child node called
       //so including current run, run child nodes N-1 more times
       for (let i = 1; i < totalLoops; i++) {

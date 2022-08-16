@@ -1,27 +1,18 @@
 export const nodeDataCache = {
   chainingData: {},
-  //call this in every chainable node
-  //if val given, save it to current cache. else pop it from parent cache
-  cacheChainingFifoValue(node, key, val) {
+  cacheChainingValue(node, key, val) {
     const childCount = getOutputChildCount(node, key);
+    this.cacheValueWithChildCount(node, val, childCount);
+  },
+
+  //bypass caching logic, just shove value into cache
+  cacheValueWithChildCount(node, val, childCount) {
     if (childCount) {
       if (!this.chainingData[node.id]) {
         this.chainingData[node.id] = {fifo: []};
       }
       this.chainingData[node.id].fifo.push({childCount: childCount, data: val});
     }
-  },
-
-  cacheChainingValue(node, key, val) {
-    const childCount = getOutputChildCount(node, key);
-    if (childCount) {
-      this.chainingData[node.id] = {childCount: childCount, data: val};
-    }
-  },
-
-  //bypass caching logic, just shove value into cache
-  forceCacheChainingValue(node, val) {
-    this.chainingData[node.id] = val;
   },
 
   popParentNodeCache(node) {
@@ -49,8 +40,6 @@ export const nodeDataCache = {
     if (this.chainingData[parentId] != null) {
       if (this.chainingData[parentId].fifo) {
         cacheData = this.popFifoObj(parentId);
-      } else if (this.chainingData[parentId].childCount) {
-        cacheData = this.popMultiChildObj(parentId);
       }
     }
     return cacheData;
@@ -64,14 +53,6 @@ export const nodeDataCache = {
       this.chainingData[parentId].fifo.shift();
     }
     if (this.chainingData[parentId].fifo.length <= 0) {
-      delete this.chainingData[parentId];
-    }
-    return cacheData;
-  },
-  popMultiChildObj(parentId) {
-    const cacheData = this.chainingData[parentId].data;
-    this.chainingData[parentId].childCount--;
-    if (this.chainingData[parentId].childCount <= 0) {
       delete this.chainingData[parentId];
     }
     return cacheData;

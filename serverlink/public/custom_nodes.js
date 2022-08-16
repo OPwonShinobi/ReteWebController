@@ -523,8 +523,6 @@ export class RepeaterNode extends Rete.Component {
   worker(node, input, data) {
     //first run
     if (!data) {
-      //disable propagation on first run
-      this.closed = ["dat"];
       const cachedData = nodeDataCache.popParentNodeCache(node);
       let totalLoops = 1; //by default run once
       if (node.data["loops"]) {
@@ -535,7 +533,9 @@ export class RepeaterNode extends Rete.Component {
       const childCount = getOutputChildCount(node, "dat");
       const dataToBeCached = {childCount: totalLoops * childCount, data: cachedData};
       nodeDataCache.forceCacheChainingValue(node, dataToBeCached);
-      for (let i = 0; i < totalLoops; i++) {
+      //rete task plugin uses BFS, current node will run N times before any child node called
+      //so including current run, run child nodes N-1 more times
+      for (let i = 1; i < totalLoops; i++) {
         document.dispatchEvent(new CustomEvent("loop", {detail:node.id}));
       }
     }

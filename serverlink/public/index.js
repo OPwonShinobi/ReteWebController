@@ -11,7 +11,6 @@ import CommentPlugin from "rete-comment-plugin";
 import "./style.css";
 import Favicon from "./favicon.png";
 import {
-  clearListeners,
   ConditionalNode,
   KeydownNode,
   LogNode,
@@ -23,9 +22,9 @@ import {
   InputNode,
   JunctionNode,
   FileInputNode,
-  RepeaterNode,
-  loadWebSockSettings,
+  RepeaterNode
 } from "./custom_nodes"
+import {loadWebSockSettings} from "node_utils";
 import {displayModal} from "./modal";
 import {loadEndPoints} from "./custom_controls";
 

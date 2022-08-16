@@ -1,7 +1,5 @@
 import Rete from "rete";
 import {JunctionTemplate, ConditionalNodeTemplate, SpreaderTemplate} from './custom_templates';
-import {WebSockFields, WebSockType} from "./web_socket_client";
-const actionSocket = new Rete.Socket("Action");
 
 import {v4} from "uuid";
 import {
@@ -10,80 +8,21 @@ import {
   TextFileControl,
   isMainpane,
   MessageControl,
-  RadioControl,
   DataUrlFileControl
 } from "./custom_controls";
+import {
+  sendHttpReq,
+  runCustomCode,
+  getOutputChildCount,
+  eventListenerCache,
+  wsSocketCache,
+  nodeDataCache
+} from "./node_utils";
+
 const dataSocket = new Rete.Socket("Data");
+const actionSocket = new Rete.Socket("Action");
 actionSocket.combineWith(dataSocket);
 
-var WEB_SOCK_PORT = 0;
-export async function loadWebSockSettings() {
-  await fetch("/config?type=setting&name=ws_port")
-  .then(rsp => rsp.json())
-  .then(port =>
-    WEB_SOCK_PORT = port
-  );
-}
-//client side only ws socket cache. Sockets are untracked on server side
-const wsSocketCache = {
-  sockets: new Map(),
-  addConnection(nodeId) {
-    let wsSocket = this.sockets.get(nodeId);
-    if (!wsSocket) {
-      wsSocket = new WebSocket('ws://localhost:' + WEB_SOCK_PORT);
-      this.sockets.set(nodeId, wsSocket);
-    }
-    return wsSocket;
-  },
-  closeConnection(nodeId) {
-    this.sockets.get(nodeId).close();
-    this.sockets.delete(nodeId);
-  },
-  getConnection(nodeId) {
-    return this.sockets.get(nodeId);
-  }
-};
-const eventListenerCache = {
-  listeners: new Map(),
-  addListener(id, name, handler) {
-    if (this.listeners.get(id)) {
-      this.removeListener(id);
-    }
-    document.addEventListener(name, handler, false);
-    this.listeners.set(id, {name: name, handler: handler});
-  },
-  removeListener(id) {
-    if (this.listeners.get(id)) {
-      const listener = this.listeners.get(id);
-      document.removeEventListener(listener.name, listener.handler);
-      this.listeners.delete(id);
-    }
-  }
-};
-
-const chainingData = {};
-
-function sendHttpReq(socket, data, endpointData) {
-  const req = {};
-  req[WebSockFields.TYPE] = WebSockType.HTTP;
-  req[WebSockFields.ENDPOINT] = JSON.parse(endpointData);//backend needs this as json
-  req[WebSockFields.PAYLOAD] = data;
-  socket.send(JSON.stringify(req));
-}
-function getOutputChildCount(node, key) {
-  return node.outputs[key].connections.length;
-}
-
-function runCustomCode(funcStr, inputData) {
-//funcStr can be null, new Function still runs
-  const func = new Function("$INPUT", funcStr);
-  let outputData = null;
-  try {outputData = func(inputData);}
-  catch (e) {
-    outputData = e;
-  }
-  return outputData;
-}
 export class CustomJsNode extends Rete.Component {
   constructor(){
     super("CustomJs");
@@ -99,9 +38,9 @@ export class CustomJsNode extends Rete.Component {
   }
   worker(node) {
     const funcStr = node.data["textfile"];
-    const inputData = popParentNodeCache(node);
+    const inputData = nodeDataCache.popParentNodeCache(node);
     const outputData = runCustomCode(funcStr, inputData);
-    cacheChainingValue(node, "dat", outputData);
+    nodeDataCache.cacheChainingValue(node, "dat", outputData);
   }
 }
 export class FileInputNode extends Rete.Component {
@@ -120,7 +59,8 @@ export class FileInputNode extends Rete.Component {
   }
   worker(node) {
     //data stored under <key> + "file"
-    cacheChainingValue(node, "dat", {file: node.data["blobfile"], data: popParentNodeCache(node)});
+    const cacheData = nodeDataCache.popParentNodeCache(node);
+    nodeDataCache.cacheChainingValue(node, "dat", {file: node.data["blobfile"], data: cacheData});
   }
 }
 export class KeydownNode extends Rete.Component {
@@ -150,7 +90,7 @@ export class KeydownNode extends Rete.Component {
 
   worker(node, inputs, data) {
     console.log(node.name, node.id, data);
-    cacheChainingValue(node, "act", String(data));
+    nodeDataCache.cacheChainingValue(node, "act", data);
   }
 }
 
@@ -187,7 +127,7 @@ export class MessageSenderNode extends Rete.Component {
   }
 
   worker(node) {
-    cacheChainingValue(node, "act", String(node.data["msg"]));
+    nodeDataCache.cacheChainingValue(node, "act", String(node.data["msg"]));
   }
 }
 export class RelayNode extends Rete.Component {
@@ -204,80 +144,10 @@ export class RelayNode extends Rete.Component {
     .addOutput(new Rete.Output("dat", "data", dataSocket));
   }
   worker(node) {
-    cacheChainingValue(node, "dat", popParentNodeCache(node));
-  }
-}
-//call this in every chainable node
-//if val given, save it to current cache. else pop it from parent cache
-function cacheChainingFifoValue(node, key, val) {
-  const childCount = getOutputChildCount(node, key);
-  if (childCount) {
-    if (!chainingData[node.id]) {
-      chainingData[node.id] = {fifo: []};
-    }
-    chainingData[node.id].fifo.push({childCount: childCount, data: val});
+    nodeDataCache.cacheChainingValue(node, "dat", nodeDataCache.popParentNodeCache(node));
   }
 }
 
-function cacheChainingValue(node, key, val) {
-  const childCount = getOutputChildCount(node, key);
-  if (childCount) {
-    chainingData[node.id] = {childCount: childCount, data: val};
-  }
-}
-//bypass caching logic, just shove value into cache
-function forceCacheChainingValue(node, val) {
-  chainingData[node.id] = val;
-}
-function popParentNodeCache(node) {
-  //node saves child node id in "node" field, not id field
-  const parentId = node.inputs["dat"].connections[0].node;
-  return popSingleParentCache(parentId);
-}
-function popFifoObj(parentId) {
-  const fifoElem = chainingData[parentId].fifo[0];
-  const cacheData = fifoElem.data;
-  fifoElem.childCount--;
-  if (fifoElem.childCount <= 0) {
-    chainingData[parentId].fifo.shift();
-  }
-  if (chainingData[parentId].fifo.length <= 0) {
-    delete chainingData[parentId];
-  }
-  return cacheData;
-}
-function popMultiChildObj(parentId) {
-  const cacheData = chainingData[parentId].data;
-  chainingData[parentId].childCount--;
-  if (chainingData[parentId].childCount <= 0) {
-    delete chainingData[parentId];
-  }
-  return cacheData;
-}
-function popSingleParentCache(parentId) {
-  let cacheData = null;
-  if (chainingData[parentId] != null) {
-    if (chainingData[parentId].fifo) {
-      cacheData = popFifoObj(parentId);
-    } else if (chainingData[parentId].childCount) {
-      cacheData = popMultiChildObj(parentId);
-    }
-  }
-  return cacheData;
-}
-function popMultiParentNodeCache(node) {
-  let cacheData = null;
-  //popParentNodeCache with many potential parents
-  for(const key in node.inputs) {
-    const inputConns = node.inputs[key].connections;
-    if (inputConns.length) {
-      const parentId = inputConns[0].node;
-      cacheData = popSingleParentCache(parentId);
-      if (cacheData != null) break;
-    }
-  }
-  return cacheData;
-}
 
 export class ConditionalNode extends Rete.Component {
 
@@ -344,7 +214,7 @@ export class ConditionalNode extends Rete.Component {
     }
   }
   worker(node) {
-    const data = popParentNodeCache(node);
+    const data = nodeDataCache.popParentNodeCache(node);
     //set closed to array of non-selected outputs, these are reversed
     this.closed = [];
     let matches = 0;
@@ -355,7 +225,7 @@ export class ConditionalNode extends Rete.Component {
       const isMatch = Boolean(runCustomCode(funcStr, data));
       if (isMatch) {
         matches++;
-        cacheChainingValue(node, key, data);
+        nodeDataCache.cacheChainingValue(node, key, data);
       } else {
         this.closed.push(key);
       }
@@ -364,7 +234,7 @@ export class ConditionalNode extends Rete.Component {
     if (matches > 0) {
       this.closed.push("else");
     } else {
-      cacheChainingValue(node, "else", data);
+      nodeDataCache.cacheChainingValue(node, "else", data);
     }
   }
 }
@@ -384,7 +254,7 @@ export class LogNode extends Rete.Component {
   }
 
   worker(node) {
-    console.log("Logger id \\ msg \\ data:", node.id, node.data["msg"], popParentNodeCache(node));
+    console.log("Logger id \\ msg \\ data:", node.id, node.data["msg"], nodeDataCache.popParentNodeCache(node));
   }
 }
 
@@ -432,17 +302,17 @@ export class OutputNode extends Rete.Component {
     //2nd run, worker called by websock
       const isSuccess = data.status === 200;
       if (isSuccess) {
-        cacheChainingValue(node, "dat", data.payload);//data -> payload
+        nodeDataCache.cacheChainingValue(node, "dat", data.payload);//data -> payload
         this.closed = ["err"];
       } else {
-        cacheChainingValue(node, "err", data);//data -> status + error payload
+        nodeDataCache.cacheChainingValue(node, "err", data);//data -> status + error payload
         this.closed = ["dat"];
       }
       //now allow propagation
     } else {
     //1st run, worker called by parent node
       const cachedSocket = wsSocketCache.getConnection(node.id);
-      const cachedData = popParentNodeCache(node);
+      const cachedData = nodeDataCache.popParentNodeCache(node);
       sendHttpReq(cachedSocket, cachedData, node.data["endpoint_configfile"]);
       this.closed = ["dat","err"]; //prevent propagation until second run
     }
@@ -481,7 +351,7 @@ export class InputNode extends Rete.Component {
     };
   }
   worker(node, inputs, data) {
-    cacheChainingValue(node, "dat", data);
+    nodeDataCache.cacheChainingValue(node, "dat", data);
   }
 }
 
@@ -548,11 +418,11 @@ export class SpreaderNode extends Rete.Component {
     }
   }
   worker(node) {
-    const spreadData = popParentNodeCache(node);
+    const spreadData = nodeDataCache.popParentNodeCache(node);
     // keep closed empty, do not close any connections: send to all child nodes
     this.closed = [];
     for (const key in node.outputs) {
-      cacheChainingValue(node, key, spreadData);
+      nodeDataCache.cacheChainingValue(node, key, spreadData);
     }
   }
 }
@@ -617,8 +487,8 @@ export class JunctionNode extends Rete.Component {
     }
   }
   worker(node) {
-    const data = popMultiParentNodeCache(node);
-    cacheChainingFifoValue(node, "dat", data);
+    const data = nodeDataCache.popMultiParentNodeCache(node);
+    nodeDataCache.cacheChainingFifoValue(node, "dat", data);
   }
 }
 export class RepeaterNode extends Rete.Component {
@@ -655,7 +525,7 @@ export class RepeaterNode extends Rete.Component {
     if (!data) {
       //disable propagation on first run
       this.closed = ["dat"];
-      const cachedData = popParentNodeCache(node);
+      const cachedData = nodeDataCache.popParentNodeCache(node);
       let totalLoops = 1; //by default run once
       if (node.data["loops"]) {
         totalLoops = parseInt(node.data["loops"]);
@@ -664,7 +534,7 @@ export class RepeaterNode extends Rete.Component {
       }
       const childCount = getOutputChildCount(node, "dat");
       const dataToBeCached = {childCount: totalLoops * childCount, data: cachedData};
-      forceCacheChainingValue(node, dataToBeCached);
+      nodeDataCache.forceCacheChainingValue(node, dataToBeCached);
       for (let i = 0; i < totalLoops; i++) {
         document.dispatchEvent(new CustomEvent("loop", {detail:node.id}));
       }

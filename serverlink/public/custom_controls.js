@@ -53,12 +53,13 @@ export class ButtonControl extends Rete.Control {
   }
 }
 export class TextFileControl extends Rete.Control {
-  constructor(emitter, data, key) {
+  constructor(emitter, data, key, isCode) {
     const thisKey = key || "text";
     super(thisKey);
     this.emitter = emitter;
     this.key = thisKey;
     data = data || {};
+    this.isCode = isCode;
     const filename = data[key + "filename"];
     const file = data[key + "file"] ?? "";
     this.template = `
@@ -81,10 +82,14 @@ export class TextFileControl extends Rete.Control {
     this._alight.scan();
   }
   showHandler(e) {
-    displayTextEditor(this.getData(this.key + "file"), function(value){
-      this.scope.file = value;
-      this.update();
-    }.bind(this));
+    displayTextEditor(
+      this.getData(this.key + "file"),
+      function(value){
+        this.scope.file = value;
+        this.update();
+      }.bind(this),
+      this.isCode
+    );
   }
   loadHandler(e) {
     const elem = window.document.createElement('input');

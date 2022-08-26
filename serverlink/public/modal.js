@@ -1,5 +1,6 @@
 import {EditorView, basicSetup} from "codemirror"
 import {javascript, esLint} from "@codemirror/lang-javascript"
+import {json, jsonParseLinter} from "@codemirror/lang-json"
 import {linter, lintGutter} from "@codemirror/lint";
 import Linter from "eslint4b-prebuilt";
 
@@ -20,15 +21,17 @@ export function displayModal(modalContents, onCloseCallback = null) {
   }
 }
 
-export function displayTextEditor(initVal, updateValCallBack) {
+export function displayTextEditor(initVal, updateValCallBack, isCode) {
   const elem = document.createElement("div");
+  const syntax = isCode ? javascript() : json();
+  const syntaxLinter = isCode ? esLint : jsonParseLinter;
   const codeEditor = new EditorView({
     doc: initVal,
     extensions: [
       basicSetup,
-      javascript(),
+      syntax,
       lintGutter(),
-      linter(esLint(new Linter(), {
+      linter(syntaxLinter(new Linter(), {
         "parserOptions": {
           "ecmaFeatures": {
             "globalReturn": true

@@ -53,6 +53,7 @@ html, body {
 }
 #rete_legend {
   transform: translateY(15%);
+  padding-bottom: 15%;
 }
 /* conditional node styling*/
 .node.conditional .btn_container .control:first-child {

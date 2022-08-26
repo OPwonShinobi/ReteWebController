@@ -36,7 +36,7 @@ export class CustomJsNode extends Rete.Component {
     node
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", dataSocket))
-    .addControl(new TextFileControl(this.editor, node.data, "text"));
+    .addControl(new TextFileControl(this.editor, node.data, "text", true));
   }
   worker(node) {
     const funcStr = node.data["textfile"];
@@ -54,7 +54,7 @@ export class FileInputNode extends Rete.Component {
   }
   builder(node) {
     node
-    //input only used so MessageSenderNode can trigger it
+    //input only used so RunnerNode can trigger it
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", dataSocket))
     .addControl(new DataUrlFileControl(this.editor, node.data, "blob"));
@@ -96,10 +96,10 @@ export class KeydownNode extends Rete.Component {
   }
 }
 
-export class MessageSenderNode extends Rete.Component {
+export class RunnerNode extends Rete.Component {
 
   constructor(){
-    super("Message Sender");
+    super("Run");
     this.task = {
       outputs: {"act": "option"},
       init(task, node){
@@ -197,7 +197,7 @@ export class ConditionalNode extends Rete.Component {
     try {this.editor.trigger('nodeselected', {node:this.node});} catch (error) {}
   }
   addCond(key){
-    const ctrl = new TextFileControl(this.editor, this.node["data"], key);
+    const ctrl = new TextFileControl(this.editor, this.node["data"], key, true);
     this.node.addControl(ctrl);
     const output = new Rete.Output(key, "else if", actionSocket);
     this.node.addOutput(output);
@@ -214,7 +214,7 @@ export class ConditionalNode extends Rete.Component {
     //due to tech limitation, else must be first
     .addOutput(new Rete.Output("else", "else", actionSocket))
     .addOutput(new Rete.Output(defaultCond, "if", actionSocket))
-    .addControl(new TextFileControl(this.editor, this.node["data"], defaultCond));
+    .addControl(new TextFileControl(this.editor, this.node["data"], defaultCond, true));
 
     //extra conditions
     for(const key in this.node["data"]) {
@@ -305,7 +305,7 @@ export class OutputNode extends Rete.Component {
 
     node
     .addControl(new DropdownControl(this.editor, "endpoint_name", node.data["endpoint_name"], "endpoint", setupEndpointConfigs))
-    .addControl(new TextFileControl(this.editor, node.data, "endpoint_config"))
+    .addControl(new TextFileControl(this.editor, node.data, "endpoint_config"), false)
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "trigger", actionSocket))
     .addOutput(new Rete.Output("err", "error", actionSocket));
@@ -528,7 +528,7 @@ export class RepeaterNode extends Rete.Component {
 
     node
     .addControl(new MessageControl(this.editor, node.data["loops"] || "10", "loops"))
-    .addControl(new TextFileControl(this.editor, node.data, "loopsFunc"))
+    .addControl(new TextFileControl(this.editor, node.data, "loopsFunc"), true)
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", actionSocket));
 

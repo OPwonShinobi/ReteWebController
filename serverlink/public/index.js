@@ -32,7 +32,7 @@ document.getElementById("favicon").href = Favicon;
 
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new LogNode(), new ConditionalNode(), new SpreaderNode(), new JunctionNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new RunnerNode(), new RelayNode(), new FileInputNode(), new RepeaterNode()];
+  return [new RunnerNode(), new LogNode(), new ConditionalNode(), new SpreaderNode(), new JunctionNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new RelayNode(), new FileInputNode(), new RepeaterNode()];
 }
 
 function setPlugins(editor) {

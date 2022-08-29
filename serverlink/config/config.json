@@ -4,101 +4,267 @@
   "ws_connect_timeout": 5000,
   "ws_socket_timeout": 30000,
   "graph_version": "serverlink@1.0.0",
-  "endpoint_host": "http://192.168.1.234:8001",
+  "endpoint_host": "http://192.168.1.115:8000",
   "endpoints" : {
     
-    "get_datasets": {
-      "dest": "$HOST",
+    "Get training data.": {
+      "dest": "{{baseUrl}}/data",
       "method": "get",
       "headers": {
         "Accept": "application/json"
       },
-      "queries":["from","to","datumId","projectId","name"]
+      "queries":[
+        "classes",
+        "labeled",
+        "datumIds"
+      ]
     },
-    "create_dataset_from_labels":{
-      "dest":"$HOST/dataset",
-      "method":"post",
-      "headers": {
-        "Content-Type": "application/json"
-      },
-      "body":{"type":"raw"}
-    },
-    "create_dataset_from_labels_and_data":{
-      "dest":"$HOST/dataset/upload",
-      "method":"post",
-      "headers": {
-        "Content-Type": "multipart/form-data"
-      },
-      "body":{
-        "type":"form-data",
-        "fields":[
-          {"name":"name"},
-          {"name":"projectId"},
-          {"name":"label"},
-          {"name":"data"}
+    "Adds training data to the server.": {
+      "dest": "{{baseUrl}}/data",
+      "method": "post",
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "data"},
+          {"name": "tags"},
+          {"name": "metadata"}
         ]
       }
     },
-    "get_dataset_by_id": {
-      "dest": "$HOST/dataset/{datasetId}",
+    "gets all keys of the metadata for all images": {
+      "dest": "{{baseUrl}}/data/metadata/keys",
+      "method": "get",
+      "queries": [
+        "metadataKeyQueries",
+        "from",
+        "to"
+      ]
+    },
+    "Get raw data from the server.": {
+      "dest": "{{baseUrl}}/data/raw/{name}",
+      "method": "get"
+    },
+    "Get a reviewable piece of data.": {
+      "dest": "{{baseUrl}}/data/thumbnail/{filePath}",
+      "method": "get"
+    },
+    "find a datum by its id": {
+      "dest": "{{baseUrl}}/data/{datumId}",
+      "method": "get"
+    },
+
+    "Upload data to a specified class": {
+      "dest": "{{baseUrl}}/dataset/upload/classifier",
+      "method": "post",
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "name"},
+          {"name": "projectID"},
+          {"name": "data"},
+          {"name": "class"},
+          {"name": "tags"}
+        ]
+      }
+    },
+    "upload data and labels to create a new dataset": {
+      "dest": "{{baseUrl}}/dataset/upload/objectdetector",
+      "method": "post",
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "name"},
+          {"name": "projectID"},
+          {"name": "label"},
+          {"name": "data"},
+          {"name": "class"},
+          {"name": "tags"}
+        ]
+      }
+    },
+
+    "Search for datasets": {
+      "dest": "{{baseUrl}}/dataset",
+      "method": "get",
+      "queries": [
+        "from",
+        "to",
+        "datumId",
+        "projectId",
+        "name"
+      ]
+    },
+    "create a dataset from a list of labels": {
+      "dest": "{{baseUrl}}/dataset",
+      "method": "post",
+      "body": {
+        "type": "raw"
+      }
+    },
+    "get dataset metrics from dataset id": {
+      "dest": "{{baseUrl}}/dataset/metrics/{datasetId}",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+    "get a single dataset by its dataset id": {
+      "dest": "{{baseUrl}}/dataset/{datasetId}",
       "method": "get",
       "headers": {
         "Accept": "application/json"
       }
     },
 
-    "get_images_in_project":{
-      "dest":"$HOST/label/session/image",
+    "Get unlabelled images": {
+      "dest": "{{baseUrl}}/label/session/image?",
       "method": "get",
-      "headers":{
+      "queries": [
+        "projectId",
+        "sessionKey",
+        "direction"
+      ],
+      "headers": {
         "Accept": "application/json"
-      },
-      "queries":["projectId"]
+      }
     },
-    "upload label data during a labeling session":{
-      "dest": "$HOST/label/session/image",
+    "upload label data during a labeling session": {
+      "dest": "{{baseUrl}}/label/session/image",
       "method": "post",
       "headers": {
         "Content-Type": "application/json"
       },
-      "body":{"type":"raw"}
+      "body": {
+        "type": "raw"
+      }
     },
-    
-    "create_label_session_from_proj_id": {
-      "dest": "$HOST/label/session/create",
+    "Create a labeling session from a project id": {
+      "dest": "{{baseUrl}}/label/session/create",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "body": {
+        "type": "raw"
+      }
+    },
+    "persists a labeling session from a project id": {
+      "dest": "{{baseUrl}}/label/session/persist",
       "method": "post",
       "headers": {
         "Content-Type": "application/json"
       },
-      "body": {"type": "raw"}
+      "body": {
+        "type": "raw"
+      }
     },
-    "persist_label_session_from_proj_id": {
-      "dest": "$HOST/label/session/persist",
+    "Get training labels.": {
+      "dest": "{{baseUrl}}/label",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries": [
+        "from",
+        "to",
+        "datumId",
+        "projectId",
+        "datasetId"
+      ]
+    },
+    "adds a label to the server": {
+      "dest": "{{baseUrl}}/label",
+      "method": "post",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": {
+        "type": "raw"
+      }
+    },
+
+    "Does inference using the provided model.": {
+      "dest": "{{baseUrl}}/model/inference",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries": [
+        "datumId",
+        "modelId"
+      ]
+    },
+    "init a specific model for inference": {
+      "dest": "{{baseUrl}}/model/inference/init",
+      "method": "get",
+      "queries": [
+        "modelId"
+      ]
+    },
+    "fetch a dial read or an lcd read from a base64 image optionally returning an annoated base64": {
+      "dest": "{{baseUrl}}/model/inference/pseg",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "body": {
+        "type": "raw"
+      }
+    },
+    "Does inference on raw datum using the provided model. This is a debugging endpoint": {
+      "dest": "{{baseUrl}}/model/inference/raw",
+      "method": "post",
+      "headers": {
+        "Accept":"application/json"
+      },
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "modelId"},
+          {"name": "datumFile", "type": "file"},
+          {"name": "datumBase64"}
+        ]
+      }
+    },
+    "process image with script": {
+      "dest": "{{baseUrl}}/model/inference/script/{scriptName}",
+      "method": "post",
+      "headers": {
+        "Accept":"application/json"
+      }
+    },
+
+    "upload artifact during training session": {
+      "dest": "{{baseUrl}}/model/train/artifact",
+      "method": "post",
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "weightsFile", "type": "file"}
+        ]
+      }
+    },
+    "Starts training on given dataset. Query /train/status to check out whats going on. Query /train/stop to stop it.": {
+      "dest": "{{baseUrl}}/model/train/start",
       "method": "post",
       "headers": {
         "Content-Type": "application/json"
       },
-      "body": {"type": "raw"}
+      "body": {
+        "type": "raw"
+      }
     },
-    "get_label_session_status": {
-      "dest": "$HOST/label/session/status",
-      "method": "get",
+    "Retrieve the current training status": {
+      "dest": "{{baseUrl}}/model/train/status",
       "headers": {
         "Accept": "application/json"
       },
-      "queries":["projectId"]
+      "method": "get"
     },
-    
-    "get_training_labels": {
-      "dest": "$HOST/label",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      },
-      "queries":["from","to","datumId","projectId","datasetId"]
-    },
-    "add_label": {
-      "dest": "$HOST/label",
+    "Stops training on given dataset. Query /train/status to check out whats going on. Query /train/start to start it.": {
+      "dest": "{{baseUrl}}/model/train/stop",
       "method": "post",
       "headers": {
         "Content-Type": "application/json"
@@ -108,151 +274,210 @@
       }
     },
 
-    "run_inference_with_model":{
-      "dest": "$HOST/model/inference",
+    "Get paginated models by some query.": {
+      "dest": "{{baseUrl}}/model",
       "method": "get",
       "headers": {
         "Accept": "application/json"
       },
-      "queries":["datumId","modelId"]
+      "queries": [
+        "from",
+        "to",
+        "includeValidationStatistics",
+        "projectId",
+        "name"
+      ]
     },
-    "init_inference_model":{
-      "dest": "$HOST/model/inference/init",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      },
-      "queries":["datumId","modelId"]
-    },
-    "debug_run_inference_with_file":{
-      "dest": "$HOST/model/inference/raw",
+    "Create a model from template.": {
+      "dest": "{{baseUrl}}/model",
       "method": "post",
       "headers": {
-        "Content-Type": "multipart/form-data",
-        "Accept":"application/json"
+        "Accept": "application/json"
       },
-      "body":{
-        "type":"form-data",
-        "fields":[
-          {"name":"datumFile","type":"file"},
-          {"name":"modelId"}
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "modelTemplateId"},
+          {"name": "projectId"},
+          {"name": "modelName"},
+          {"name": "modelTemplateFileParams"}
+        ]
+      }
+    },
+    "Get a projects best model": {
+      "dest": "{{baseUrl}}/model/best",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries": ["projectId"]
+    },
+    "returns supported models": {
+      "dest": "{{baseUrl}}/model/supported",
+      "method": "get"
+    },
+    "get a model by its id": {
+      "dest": "{{baseUrl}}/model/{modelId}",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+
+    "find a project by project id": {
+      "dest": "{{baseUrl}}/project/{projectId}",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+    "Get paginated projects by some query.": {
+      "dest": "{{baseUrl}}/project",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries": [
+        "from",
+        "to",
+        "datumId",
+        "datasetId",
+        "name"
+      ]
+    },
+    "Create a new project.": {
+      "dest": "{{baseUrl}}/project",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "body": {
+        "type": "raw"
+      }
+    },
+
+    "Search for sessions": {
+      "dest": "{{baseUrl}}/session",
+      "method": "get",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries": [
+        "from",
+        "to",
+        "projectId"
+      ]
+    },
+
+    "Get tags.": {
+      "dest": "{{baseUrl}}/tags",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "queries": [
+        "from",
+        "to",
+        "projectId",
+        "datasetId",
+        "metadataKeyValueQueries"
+      ]
+    },
+    "Add tags.": {
+      "dest": "{{baseUrl}}/tags/add",
+      "method": "post",
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "tags"},
+          {"name": "datumIds"}
+        ]
+      }
+    },
+    "remove tags.": {
+      "dest": "{{baseUrl}}/tags/remove",
+      "method": "post",
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "tags"},
+          {"name": "datumIds"}
         ]
       }
     },
 
-    "query_paginated_projects":{
-      "dest": "$HOST/project",
+    "get the templates from the server": {
+      "dest": "{{baseUrl}}/template",
       "method": "get",
       "headers": {
         "Accept": "application/json"
       },
-      "queries":["from","to","datumId","datasetId","name"]
-    },
-    "create_new_proj":{
-      "dest": "$HOST/project",
-      "method": "post",
-      "headers": {
-        "Content-Type": "application/json"
-      },
-      "body":{
-        "type":"raw"
-      }
-    },
-    "get_proj_by_id":{
-      "dest": "$HOST/project/{projectId}",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      }
+      "queries": [
+        "from",
+        "to",
+        "projectId"
+      ]
     },
 
-    "add_artifact_during_train_session":{
-      "dest": "$HOST/train/artifact",
+    "upload data to add to a projects validation set for a classifier": {
+      "dest": "{{baseUrl}}/validation/upload/classifier",
       "method": "post",
-      "headers": {
-        "Content-Type": "application/json"
-      },
-      "body":{
-        "type":"form-data",
-        "fields":[{"name":"weightsFile","type":"file"}]
-      },
-      "queries":["modelId","datasetId"]
-    },
-    "run_train_start":{
-      "dest": "$HOST/train/start",
-      "method": "post",
-      "headers": {
-        "Content-Type": "application/json"
-      },
-      "body":{
-        "type":"raw"
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "projectID"},
+          {"name": "className"},
+          {"name": "data"}
+        ]
       }
     },
-    "get_train_status":{
-      "dest": "$HOST/train/status",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      }
-    },
-    "run_train_stop":{
-      "dest": "$HOST/train/stop",
+    "upload data and labels to add to a object detector projects validation set": {
+      "dest": "{{baseUrl}}/validation/upload/objectdetector",
       "method": "post",
-      "headers": {
-        "Content-Type": "application/json"
-      },
-      "body":{
-        "type":"raw"
-      }
-    },
-
-    "query_paginated_models":{
-      "dest": "$HOST/trained/model",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      },
-      "queries":["from","to","projectId","name"]
-    },
-    "add_trained_model":{
-      "dest": "$HOST/trained/model",
-      "method": "post",
-      "headers": {
-        "Content-Type": "application/json"
-      },
-      "body":{
-        "type":"form-data",
-        "fields":[
-          {"name":"modelTemplateId"},
-          {"name":"projectId"},
-          {"name":"classes"},
-          {"name":"modelName"},
-          {"name":"modelTemplateFileParams"}
+      "body": {
+        "type": "form-data",
+        "fields": [
+          {"name": "projectID"},
+          {"name": "label"},
+          {"name": "data"}
         ]
       }
     },
 
-    "get_all_mothership_classes":{
-      "dest": "$HOST/classes",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      }
-    },
-    "get_all_supported_models":{
-      "dest": "$HOST/models",
-      "method": "get",
-      "headers": {
-        "Accept": "application/json"
-      }
-    },
-    "query_server_templates":{
-      "dest": "$HOST/template",
+    "Get a projects validation data": {
+      "dest": "{{baseUrl}}/validation",
       "method": "get",
       "headers": {
         "Accept": "application/json"
       },
-      "queries":["from","to"]
+      "queries": [
+        "projectId",
+        "modelId",
+        "sessionId"
+      ]
+    },
+    "validate a model off the current project validation set": {
+      "dest": "{{baseUrl}}/validation",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "raw"
+      }
+    },
+
+    "fetch a single training artifact by its id.": {
+      "dest": "{{baseUrl}}/artifact/{artifactId}",
+      "headers": {
+        "Accept": "application/json"
+      }
+    },
+    "get all classes currently used across the mothership": {
+      "dest": "{{baseUrl}}/class",
+      "headers": {
+        "Accept": "application/json"
+      }
     }
   }
 }

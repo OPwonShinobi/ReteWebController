@@ -27,7 +27,7 @@ public class ConfigurationHandler {
       JSONObject endPoint = new JSONObject();
       if (allEndPoints.has(name)) {
         endPoint = allEndPoints.getJSONObject(name);
-        String dest = endPoint.getString("dest").replace("$HOST", this.getEndpointHost());
+        String dest = endPoint.getString("dest").replace("{{baseUrl}}", this.getEndpointHost());
         endPoint.put("dest", dest);
       }
       return endPoint;

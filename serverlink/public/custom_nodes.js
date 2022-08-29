@@ -305,7 +305,7 @@ export class OutputNode extends Rete.Component {
 
     node
     .addControl(new DropdownControl(this.editor, "endpoint_name", node.data["endpoint_name"], "endpoint", setupEndpointConfigs))
-    .addControl(new TextFileControl(this.editor, node.data, "endpoint_config"), false)
+    .addControl(new TextFileControl(this.editor, node.data, "endpoint_config", false))
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "trigger", actionSocket))
     .addOutput(new Rete.Output("err", "error", actionSocket));
@@ -528,7 +528,7 @@ export class LoopNode extends Rete.Component {
 
     node
     .addControl(new MessageControl(this.editor, node.data["loops"] || "10", "loops"))
-    .addControl(new TextFileControl(this.editor, node.data, "loopsFunc"), true)
+    .addControl(new TextFileControl(this.editor, node.data, "loopsFunc", true))
     .addInput(new Rete.Input("dat", "data", dataSocket))
     .addOutput(new Rete.Output("dat", "data", actionSocket));
 

@@ -508,9 +508,9 @@ export class JunctionNode extends Rete.Component {
     nodeCache.cacheChainingValue(node, "dat", data);
   }
 }
-export class RepeaterNode extends Rete.Component {
+export class LoopNode extends Rete.Component {
   constructor(){
-    super("Repeater");
+    super("Loop");
     this.task = {
       outputs: {dat:"option"},
       init(task, node){

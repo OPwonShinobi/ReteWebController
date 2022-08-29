@@ -102,7 +102,7 @@ public class SimpleWebSocketServer extends WebSocketServer {
       switch (bodyType) {
         //postman has more, but currently only support these 2
         case "raw":
-          String rawPayload = webSockMsg.getString(WebSocketUtils.RAW);
+          String rawPayload = webSockMsg.getString(WebSocketUtils.PAYLOAD);
           req = ((HttpRequestWithBody)req).body(rawPayload);
           break;
         case "form-data":
@@ -175,7 +175,7 @@ public class SimpleWebSocketServer extends WebSocketServer {
       @Override
       public void completed(HttpResponse<JsonNode> rsp) {
         if (rsp.getStatus() == 200) {
-          this.sendToWebSock(rsp.getStatus(), rsp.getBody().toString());
+          this.sendToWebSock(rsp.getStatus(), rsp.getBody() == null ? "" : rsp.getBody().toString());
         } else {
           this.sendToWebSock(rsp.getStatus(), rsp.mapError(String.class));
         }

@@ -349,7 +349,7 @@ export class InputNode extends Rete.Component {
         wsSocket.onmessage = function (event) {
           const rsp = JSON.parse(event.data);
           if (rsp[document.WebSockFields.TYPE] === document.WebSockType.BROADCAST
-            && rsp[document.WebSockFields.NAME] === src.node.data["msg"]) {
+            && rsp[document.WebSockFields.NAME] === node.data["msg"]) {
             task.run(rsp[document.WebSockFields.PAYLOAD]);
             task.reset();
           }

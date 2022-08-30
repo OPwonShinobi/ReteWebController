@@ -120,6 +120,9 @@ public class SimpleWebSocketServer extends WebSocketServer {
       JSONObject field = fields.getJSONObject(i);
       String name = field.getString("name");
       String type = field.has("type") ? field.getString("type"):"text";
+      if (!payload.has(name)) {
+        continue;
+      }
       //postman only lists these 2
       if ("file".equals(type)) {
         InputStream fileBytes = base64ToInputStream(payload.getString(name));

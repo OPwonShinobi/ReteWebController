@@ -4,7 +4,7 @@
   "ws_connect_timeout": 5000,
   "ws_socket_timeout": 30000,
   "graph_version": "serverlink@1.0.0",
-  "endpoint_host": "http://192.168.1.115:8000",
+  "endpoint_host": "http://192.168.1.109:8000",
   "endpoints" : {
     
     "Get training data.": {
@@ -42,11 +42,13 @@
     },
     "Get raw data from the server.": {
       "dest": "{{baseUrl}}/data/raw/{name}",
-      "method": "get"
+      "method": "get",
+      "response": "image"
     },
     "Get a reviewable piece of data.": {
       "dest": "{{baseUrl}}/data/thumbnail/{filePath}",
-      "method": "get"
+      "method": "get",
+      "response": "image"
     },
     "find a datum by its id": {
       "dest": "{{baseUrl}}/data/{datumId}",

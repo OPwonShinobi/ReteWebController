@@ -1,6 +1,10 @@
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -8,7 +12,6 @@ import kong.unirest.Callback;
 import kong.unirest.HttpRequest;
 import kong.unirest.HttpRequestWithBody;
 import kong.unirest.HttpResponse;
-import kong.unirest.JsonNode;
 import kong.unirest.MultipartBody;
 import kong.unirest.Unirest;
 import kong.unirest.UnirestException;
@@ -153,6 +156,14 @@ public class SimpleWebSocketServer extends WebSocketServer {
     byte[] data = Base64.decodeBase64(base64DataUrl);
     return new ByteArrayInputStream(data);
   }
+  private void sendToWebSock(WebSocket conn, int status, String msg) {
+    JSONObject rspObj = new JSONObject();
+    msg = msg == null ? "" : msg;
+    rspObj.put(WebSocketUtils.TYPE, WebSocketUtils.Type.HTTP.toString());
+    rspObj.put(WebSocketUtils.STATUS, status);
+    rspObj.put(WebSocketUtils.PAYLOAD, msg);
+    conn.send(rspObj.toString());
+  }
   private void sendJsonHttpRequest(JSONObject webSockMsg, WebSocket conn) {
     //for now, specify selected endpoint in data from front end
     JSONObject endPoint = webSockMsg.getJSONObject(WebSocketUtils.ENDPOINT);
@@ -170,26 +181,30 @@ public class SimpleWebSocketServer extends WebSocketServer {
     req = handleHeaders(req, endPoint);
     req = handleRouteParams(req, endPoint, webSockMsg);
     req = handleQueryParams(req, endPoint, webSockMsg);
-    req.asJsonAsync(new Callback<JsonNode>() {
-      @Override
-      public void failed(UnirestException e) {
-        this.sendToWebSock(-1, e.getMessage());
-      }
-      @Override
-      public void completed(HttpResponse<JsonNode> rsp) {
-        if (rsp.getStatus() == 200) {
-          this.sendToWebSock(rsp.getStatus(), rsp.getBody() == null ? "" : rsp.getBody().toString());
-        } else {
-          this.sendToWebSock(rsp.getStatus(), rsp.mapError(String.class));
+    if (endPoint.has("response")) {
+      String filepath = "temp" + System.currentTimeMillis();
+      req.asFileAsync(filepath, (Callback<String>) rsp -> {
+        try {
+          byte[] fileContent = Files.readAllBytes(Paths.get(filepath));
+          sendToWebSock(conn, rsp.getStatus(), Base64.encodeBase64String(fileContent));
+          new File(filepath).delete();
+        } catch (IOException e) {}
+      });
+    } else {
+      req.asStringAsync(new Callback<String>() {
+        @Override
+        public void failed(UnirestException e) {
+          sendToWebSock(conn, -1, e.getMessage());
         }
-      }
-      private void sendToWebSock(int status, String msg) {
-        JSONObject rspObj = new JSONObject();
-        rspObj.put(WebSocketUtils.TYPE, WebSocketUtils.Type.HTTP.toString());
-        rspObj.put(WebSocketUtils.STATUS, status);
-        rspObj.put(WebSocketUtils.PAYLOAD, msg);
-        conn.send(rspObj.toString());
-      }
-    });
+        @Override
+        public void completed(HttpResponse<String> rsp) {
+          if (rsp.getStatus() == 200) {
+            sendToWebSock(conn, rsp.getStatus(), rsp.getBody());
+          } else {
+            sendToWebSock(conn, rsp.getStatus(), rsp.mapError(String.class));
+          }
+        }
+      });
+    }
   }
 }

@@ -65,6 +65,29 @@ export class FileInputNode extends Rete.Component {
     nodeCache.cacheChainingValue(node, "dat", {file: node.data["blobfile"], data: cacheData});
   }
 }
+export class DownloaderNode extends Rete.Component {
+  constructor(){
+    super("Downloader");
+    this.task = {outputs: {}}
+  }
+  builder(node) {
+    node
+    //input only used so RunnerNode can trigger it
+    .addInput(new Rete.Input("dat", "data", dataSocket))
+    .addControl(new MessageControl(this.editor, this.data["filename"], "filename"))
+  }
+  worker(node) {
+    const cacheData = nodeCache.popParentNodeCache(node);
+    if (cacheData) {
+      const link = document.createElement("a");
+      link.href = "data:image;base64," + cacheData;
+      link.download = node.data["filename"] || "node result.jpeg";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+  }
+}
 export class KeydownNode extends Rete.Component {
 
   constructor(){
@@ -288,7 +311,6 @@ export class OutputNode extends Rete.Component {
           if (rsp[document.WebSockFields.TYPE] === document.WebSockType.BROADCAST)//ignore messages intended for input nodes
             return;
           task.run(rsp);
-          task.reset();
         };
       }
     }

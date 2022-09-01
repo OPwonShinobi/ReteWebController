@@ -22,7 +22,8 @@ import {
   InputNode,
   JunctionNode,
   FileInputNode,
-  LoopNode
+  LoopNode,
+  DownloaderNode
 } from "./custom_nodes"
 import {loadWebSockSettings} from "./node_utils";
 import {displayModal} from "./modal";
@@ -32,7 +33,7 @@ document.getElementById("favicon").href = Favicon;
 
 //need new deep copy for every rete engine
 function getComponents() {
-  return [new RunnerNode(), new LogNode(), new ConditionalNode(), new SpreaderNode(), new JunctionNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new RelayNode(), new FileInputNode(), new LoopNode()];
+  return [new RunnerNode(), new LogNode(), new ConditionalNode(), new SpreaderNode(), new JunctionNode(), new InputNode(), new OutputNode(), new CustomJsNode(), new KeydownNode(), new RelayNode(), new FileInputNode(), new LoopNode(), new DownloaderNode()];
 }
 
 function setPlugins(editor) {

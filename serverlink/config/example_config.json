@@ -5,7 +5,7 @@
   "endpoint_host": "http://localhost:8001", //gets overwritten by environment var SERVERLINK_ENDPOINT_HOST
   "endpoints" : {
     "simple_get_example": {
-      "dest": "$HOST/endpoint", //if using custom endpoint, replace $HOST with full URL
+      "dest": "{{baseUrl}}/endpoint", //if using custom endpoint, replace {{baseUrl}} with full URL
       "method": "get",//case insensitive
       "headers": {
         "Accept": "application/json"
@@ -14,7 +14,7 @@
     },
 
     "simple_post_example": {
-      "dest": "$HOST/endpoint",
+      "dest": "{{baseUrl}}/endpoint",
       "method": "post",
       "headers": {
         "Content-Type": "application/json"
@@ -23,7 +23,7 @@
 
     //route params can be used by get or post
     "route_params_example": {
-      "dest": "$HOST/endpoint/{param1}/{param2}", //specifying any params in {} is enough, server will fetch these fields from payload (must be same name)
+      "dest": "{{baseUrl}}/endpoint/{param1}/{param2}", //specifying any params in {} is enough, server will fetch these fields from payload (must be same name)
       "method": "get",
       "headers": {
         "Accept": "application/json"
@@ -32,7 +32,7 @@
 
     //query params can be used by get or post
     "query_params_example": {
-      "dest": "$HOST/endpoint", //this gets turned into http://localhost:8080/endpoint?param1=XXX&param2=YYY
+      "dest": "{{baseUrl}}/endpoint", //this gets turned into http://localhost:8080/endpoint?param1=XXX&param2=YYY
       "method": "get",
       "headers": {
         "Accept": "application/json"
@@ -41,7 +41,7 @@
     },
 
     "post_form_example": {
-      "dest": "$HOST/endpoint",
+      "dest": "{{baseUrl}}/endpoint",
       "method": "post",
       "headers": {
         "Accept": "application/json"
@@ -57,7 +57,7 @@
     },
     
     "post_raw_example": {
-      "dest": "$HOST/endpoint",
+      "dest": "{{baseUrl}}/endpoint",
       "method": "post",
       "headers": {
         "Content-Type": "application/json"
@@ -65,6 +65,11 @@
       "body": {
         "type": "raw" //type==raw. Payload directly retrieved as body
       }
+    },
+
+    "image download example": {
+      "response": "image" //having response will default it to image. Currently only image supported
+      //can be post or get
     }
 
   }

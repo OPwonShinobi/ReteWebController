@@ -74,7 +74,7 @@ export class DownloaderNode extends Rete.Component {
     node
     //input only used so RunnerNode can trigger it
     .addInput(new Rete.Input("dat", "data", dataSocket))
-    .addControl(new MessageControl(this.editor, this.data["filename"], "filename"))
+    .addControl(new MessageControl(this.editor, node.data["filename"], "filename"))
   }
   worker(node) {
     const cacheData = nodeCache.popParentNodeCache(node);

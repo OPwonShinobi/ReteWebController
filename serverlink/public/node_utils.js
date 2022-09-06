@@ -109,7 +109,7 @@ export const wsSocketCache = {
   addConnection(nodeId) {
     let wsSocket = this.sockets.get(nodeId);
     if (!wsSocket) {
-      wsSocket = new WebSocket('ws://localhost:' + WEB_SOCK_PORT);
+      wsSocket = new WebSocket('ws://' + window.location.hostname + ':' + WEB_SOCK_PORT);
       this.sockets.set(nodeId, wsSocket);
     }
     return wsSocket;

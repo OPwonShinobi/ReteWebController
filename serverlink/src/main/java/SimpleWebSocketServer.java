@@ -23,14 +23,12 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class SimpleWebSocketServer extends WebSocketServer {
-  private ConfigurationHandler configHandler;
 
   public SimpleWebSocketServer(InetSocketAddress address, ConfigurationHandler configHandler) {
     super(address);
     Unirest.primaryInstance().config().connectTimeout(Integer.parseInt(configHandler.getSetting("ws_connect_timeout")));
     Unirest.primaryInstance().config().socketTimeout(Integer.parseInt(configHandler.getSetting("ws_socket_timeout")));
     System.out.println(String.format("\nStarting websocket server at %s:%d\n", address.getHostName(), address.getPort()));
-    this.configHandler = configHandler;
   }
 
   @Override
